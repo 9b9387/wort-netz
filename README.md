@@ -1,36 +1,124 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# WortNetz
 
-## Getting Started
+结构化德语词汇追踪与网状知识库。第一阶段聚焦查词与词元归集链路：输入任意德语变体词，调用 DWDS 归集到规范 Lemma，并记录每个用户的遇见次数。
 
-First, run the development server:
+## 技术栈
+
+- Next.js 16 App Router + React 19 + Tailwind CSS v4
+- Supabase Auth（邮箱密码）
+- Prisma ORM 7 + Supabase PostgreSQL
+- DWDS 公开 API：词元、词性、频率、IPA
+- FreeDictionaryAPI.com：英文释义与词形变化（English Wiktionary，CC BY-SA 4.0）
+
+## 数据源职责
+
+- DWDS：`frequency`、`wb/snippet`、`ipa`
+- FreeDictionaryAPI.com：`/api/v1/entries/de/<word>`
+- 外部响应缓存在 `dwds_cache` 表中，避免重复请求
+- 小写输入如果是较弱的动词形式，会尝试首字母大写后的名词词条，例如 `lampe → Lampe`
+
+## 线上配置
+
+在 Supabase Dashboard 中准备：
+
+1. `Project Settings -> API`：获取 `NEXT_PUBLIC_SUPABASE_URL` 和 publishable/anon key。
+2. `Connect -> ORMs -> Prisma`：复制 Prisma 使用的 `DATABASE_URL`（pooler，6543）和 `DIRECT_URL`（直连，5432）。
+
+复制环境变量模板：
+
+```bash
+cp .env.example .env.local
+```
+
+生成 Server Action 加密密钥：
+
+```bash
+openssl rand -base64 32
+```
+
+## 安装与迁移
+
+```bash
+npm install
+npm run db:migrate
+```
+
+`db:migrate` 会通过 `DIRECT_URL` 执行 `prisma/migrations`，创建：
+
+- `profiles`
+- `lexemes`
+- `encounters`
+- `user_lexemes`
+- `dwds_cache`
+
+同时会创建 Supabase Auth 用户触发器与 RLS 策略。
+
+本地开发时如果还没有线上连接串，可以先只运行 `npm run db:generate` 生成 Prisma Client，但应用查询数据库前必须填好 `DATABASE_URL` 和 `DIRECT_URL`。
+
+## 启动
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+打开 [http://localhost:3000](http://localhost:3000)。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+如果当前环境的 Turbopack 因端口绑定限制报 `Operation not permitted`，可使用：
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run dev:webpack
+```
 
-## Learn More
+## 数据模型变更
 
-To learn more about Next.js, take a look at the following resources:
+修改 `prisma/schema.prisma` 后：
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run db:migrate:dev
+npm run db:generate
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+生产环境只使用：
 
-## Deploy on Vercel
+```bash
+npm run db:migrate
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 鉴权与安全
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- 页面鉴权由 Next 16 `proxy.ts` + Supabase Auth 完成。
+- 每次 Server Action 都会重新校验用户。
+- Prisma 使用数据库 owner 角色，因此 RLS 是防直接 PostgREST 访问的兜底层；应用查询仍需始终按 `userId` 过滤。
+- 不要把 `DATABASE_URL`、`DIRECT_URL` 或密钥提交到 Git。
+
+## MCP
+
+Codex 已配置两个远程 MCP：
+
+- `Prisma-Remote`：`https://mcp.prisma.io/mcp`
+- `supabase`：带当前 project ref 的 Supabase 官方 MCP
+
+重启 Codex 后可用 `/mcp` 查看状态。首次使用时按提示完成 OAuth 登录。
+
+## 质量检查
+
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm run build
+```
+
+如果当前环境的 Turbopack 因端口绑定限制导致 `npm run build` 报 `Operation not permitted`，可改用：
+
+```bash
+npm run build:webpack
+```
+
+## 部署到 Vercel
+
+1. 在 Vercel 导入仓库。
+2. 配置 `.env.example` 中的所有环境变量。
+3. `npm run build` 会自动执行 `prisma generate`，然后构建 Next.js。
+
+> Prisma 连接池建议：Vercel 运行时使用 `DATABASE_URL`（Supavisor 6543），Prisma CLI 迁移使用 `DIRECT_URL`（5432）。

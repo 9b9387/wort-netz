@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Profile {
+  id          String   @id @db.Uuid
+  displayName String?  @map("display_name")
+  uiLocale    String   @default("zh") @map("ui_locale")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  encounters  Encounter[]
+  userLexemes UserLexeme[]
+
+  @@map("profiles")
+}
+
+model Lexeme {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  normalizedLemma String   @unique @map("normalized_lemma")
+  canonicalLemma  String   @map("canonical_lemma")
+  wordType        String?  @map("word_type")
+  frequencyClass  Int?     @map("frequency_class") @db.SmallInt
+  ipa             String?
+  dwdsUrl         String?  @map("dwds_url")
+  definitionEn    String?  @map("definition_en")
+  formsJson       Json?    @map("forms_json")
+  dictionaryUrl   String?  @map("dictionary_url")
+  dictionarySource String? @map("dictionary_source")
+  dictionaryLicense String? @map("dictionary_license")
+  dictionaryFetchedAt DateTime? @map("dictionary_fetched_at") @db.Timestamptz(6)
+  sourceJson      Json     @default("{}") @map("source_json")
+  sourceFetchedAt DateTime @default(now()) @map("source_fetched_at") @db.Timestamptz(6)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  encounters  Encounter[]
+  userLexemes UserLexeme[]
+
+  @@index([wordType])
+  @@index([frequencyClass])
+  @@map("lexemes")
+}
+
+model Encounter {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  lexemeId    String   @map("lexeme_id") @db.Uuid
+  surfaceForm String   @map("surface_form")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  profile Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lexeme  Lexeme  @relation(fields: [lexemeId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, lexemeId, createdAt(sort: Desc)])
+  @@map("encounters")
+}
+
+model UserLexeme {
+  userId         String   @map("user_id") @db.Uuid
+  lexemeId       String   @map("lexeme_id") @db.Uuid
+  firstSeenAt    DateTime @default(now()) @map("first_seen_at") @db.Timestamptz(6)
+  lastSeenAt     DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+  encounterCount Int      @default(0) @map("encounter_count")
+
+  profile Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lexeme  Lexeme  @relation(fields: [lexemeId], references: [id], onDelete: Cascade)
+
+  @@id([userId, lexemeId])
+  @@index([userId, lastSeenAt(sort: Desc)])
+  @@map("user_lexemes")
+}
+
+model DwdsCache {
+  endpoint  String
+  query     String
+  payload   Json
+  fetchedAt DateTime @default(now()) @map("fetched_at") @db.Timestamptz(6)
+
+  @@id([endpoint, query])
+  @@map("dwds_cache")
+}
