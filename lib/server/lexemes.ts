@@ -350,14 +350,14 @@ export async function getUserWordDetail(
   }
 
   const lexemeWithGender = await ensureLexemeGender(lexeme);
-  const wordnet = await getWordnetContentForLexeme({
-    id: lexemeWithGender.id,
-    canonicalLemma: lexemeWithGender.canonicalLemma,
-    normalizedLemma: lexemeWithGender.normalizedLemma,
-  });
-  const vocabularyLevels = await getVocabularyLevelsForLexeme(
-    lexemeWithGender.id,
-  );
+  const [wordnet, vocabularyLevels] = await Promise.all([
+    getWordnetContentForLexeme({
+      id: lexemeWithGender.id,
+      canonicalLemma: lexemeWithGender.canonicalLemma,
+      normalizedLemma: lexemeWithGender.normalizedLemma,
+    }),
+    getVocabularyLevelsForLexeme(lexemeWithGender.id),
+  ]);
 
   return {
     lexeme: lexemeWithGender,

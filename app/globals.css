@@ -7,7 +7,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  --font-sans: var(--font-hanken);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", monospace;
   --font-heading: var(--font-sans);
@@ -57,6 +57,21 @@
   --color-cefr: var(--cefr);
   --color-cefr-foreground: var(--cefr-foreground);
   --color-cefr-muted: var(--cefr-muted);
+  --color-surface-bright: var(--surface-bright);
+  --color-parchment-border: var(--parchment-border);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-accent-ochre: var(--accent-ochre);
+  --color-accent-amber: var(--accent-amber);
+  --color-sage: var(--sage);
+  --color-sage-muted: var(--sage-muted);
+  --color-sage-border: var(--sage-border);
+  --color-ochre-muted: var(--ochre-muted);
+  --color-ochre-border: var(--ochre-border);
+  --color-ochre-foreground: var(--ochre-foreground);
+  --color-burgundy-tint: var(--burgundy-tint);
+  --color-burgundy-border: var(--burgundy-border);
+  --shadow-plate: 0 2px 8px -2px rgb(43 38 37 / 0.05),
+    0 8px 24px -4px rgb(43 38 37 / 0.07);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -67,106 +82,76 @@
 }
 
 body {
-  font-family: var(--font-sans);
+  font-family: var(--font-hanken);
 }
 
+/*
+ * WortKraft "Warm Editorial Parchment" palette. This is the single
+ * application theme: classical bookbinding materials mapped onto the shadcn
+ * semantic tokens, so every existing component picks up the warm editorial
+ * look without bespoke overrides.
+ */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --gender-masculine: oklch(0.54 0.19 255);
-  --gender-masculine-foreground: oklch(0.26 0.10 255);
-  --gender-masculine-muted: oklch(0.96 0.02 255);
-  --gender-feminine: oklch(0.58 0.22 15);
-  --gender-feminine-foreground: oklch(0.30 0.11 15);
-  --gender-feminine-muted: oklch(0.97 0.01 15);
-  --gender-neuter: oklch(0.55 0.14 155);
-  --gender-neuter-foreground: oklch(0.28 0.08 155);
-  --gender-neuter-muted: oklch(0.96 0.02 155);
-  --gender-plural: oklch(0.55 0.20 300);
-  --gender-plural-foreground: oklch(0.30 0.12 300);
-  --gender-plural-muted: oklch(0.96 0.02 300);
-  --cefr: oklch(0.58 0.13 70);
-  --cefr-foreground: oklch(0.32 0.07 70);
-  --cefr-muted: oklch(0.96 0.02 70);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --gender-masculine: oklch(0.68 0.15 255);
-  --gender-masculine-foreground: oklch(0.88 0.05 255);
-  --gender-masculine-muted: oklch(0.24 0.04 255);
-  --gender-feminine: oklch(0.72 0.18 15);
-  --gender-feminine-foreground: oklch(0.90 0.06 15);
-  --gender-feminine-muted: oklch(0.26 0.05 15);
-  --gender-neuter: oklch(0.70 0.13 155);
-  --gender-neuter-foreground: oklch(0.88 0.05 155);
-  --gender-neuter-muted: oklch(0.24 0.04 155);
-  --gender-plural: oklch(0.70 0.17 300);
-  --gender-plural-foreground: oklch(0.89 0.06 300);
-  --gender-plural-muted: oklch(0.26 0.05 300);
-  --cefr: oklch(0.70 0.11 70);
-  --cefr-foreground: oklch(0.90 0.05 70);
-  --cefr-muted: oklch(0.26 0.04 70);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #fbf8f3;
+  --foreground: #1f1b1a;
+  --card: #fffdf9;
+  --card-foreground: #1f1b1a;
+  --popover: #fffdf9;
+  --popover-foreground: #1f1b1a;
+  --primary: #6d2325;
+  --primary-foreground: #fffdf9;
+  --secondary: #f3efe6;
+  --secondary-foreground: #1f1b1a;
+  --muted: #f1ebe0;
+  --muted-foreground: #5a504d;
+  --accent: #f6ecea;
+  --accent-foreground: #1f1b1a;
+  --destructive: #ba1a1a;
+  --border: #e4dcd2;
+  --input: #dcd4c0;
+  --ring: #6d2325;
+  --chart-1: #6d2325;
+  --chart-2: #8b3a3a;
+  --chart-3: #c4823f;
+  --chart-4: #5a6856;
+  --chart-5: #b87333;
+  --radius: 0.5rem;
+  --gender-masculine: #b87333;
+  --gender-masculine-foreground: #8a4c0d;
+  --gender-masculine-muted: #f7efe6;
+  --gender-feminine: #8b3a3a;
+  --gender-feminine-foreground: #6d2325;
+  --gender-feminine-muted: #f7ebe9;
+  --gender-neuter: #5a6856;
+  --gender-neuter-foreground: #3d4a3a;
+  --gender-neuter-muted: #edf1eb;
+  --gender-plural: #7c8b76;
+  --gender-plural-foreground: #4a5847;
+  --gender-plural-muted: #eef1ea;
+  --cefr: #c4823f;
+  --cefr-foreground: #9c5b23;
+  --cefr-muted: #fbf3e8;
+  --sidebar: #f6f0e4;
+  --sidebar-foreground: #1f1b1a;
+  --sidebar-primary: #6d2325;
+  --sidebar-primary-foreground: #fffdf9;
+  --sidebar-accent: #f0e6e4;
+  --sidebar-accent-foreground: #1f1b1a;
+  --sidebar-border: #e5ddcb;
+  --sidebar-ring: #6d2325;
+  --surface-bright: #fffdf9;
+  --parchment-border: #e5ddcb;
+  --ink-secondary: #554241;
+  --accent-ochre: #c4823f;
+  --accent-amber: #b87333;
+  --sage: #5a6856;
+  --sage-muted: #edf1eb;
+  --sage-border: #cbd5c8;
+  --ochre-muted: #f7efe6;
+  --ochre-border: #ebd5be;
+  --ochre-foreground: #9c5b23;
+  --burgundy-tint: #f7ebe9;
+  --burgundy-border: #ebd0cc;
 }
 
 @layer base {
@@ -179,80 +164,4 @@ body {
   html {
     @apply font-sans;
   }
-}
-
-/*
- * Scoped theme for the word detail page. This maps the Stitch WortKraft
- * "Parchment Edition" palette onto shadcn semantic tokens without changing
- * the rest of the application.
- */
-.word-card-theme {
-  --background: #fbf8f3;
-  --foreground: #1f1b1a;
-  --card: #ffffff;
-  --card-foreground: #1f1b1a;
-  --popover: #ffffff;
-  --popover-foreground: #1f1b1a;
-  --primary: #6d2325;
-  --primary-foreground: #ffffff;
-  --secondary: #f6f1e8;
-  --secondary-foreground: #1f1b1a;
-  --muted: #f1ebe0;
-  --muted-foreground: #5a504d;
-  --accent: #f6f1e8;
-  --accent-foreground: #1f1b1a;
-  --destructive: #ba1a1a;
-  --border: #e4dcd2;
-  --input: #e4dcd2;
-  --ring: #6d2325;
-  --gender-masculine: #2563eb;
-  --gender-masculine-foreground: #1d4ed8;
-  --gender-masculine-muted: #eff6ff;
-  --gender-feminine: #e11d48;
-  --gender-feminine-foreground: #be123c;
-  --gender-feminine-muted: #fff1f2;
-  --gender-neuter: #059669;
-  --gender-neuter-foreground: #047857;
-  --gender-neuter-muted: #ecfdf5;
-  --gender-plural: #7c3aed;
-  --gender-plural-foreground: #6d28d9;
-  --gender-plural-muted: #f5f3ff;
-  --cefr: #d97706;
-  --cefr-foreground: #b45309;
-  --cefr-muted: #fffbeb;
-}
-
-.dark .word-card-theme {
-  --background: #1c1917;
-  --foreground: #f5f5f4;
-  --card: #292524;
-  --card-foreground: #f5f5f4;
-  --popover: #292524;
-  --popover-foreground: #f5f5f4;
-  --primary: #fca5a5;
-  --primary-foreground: #450a0a;
-  --secondary: #44403c;
-  --secondary-foreground: #f5f5f4;
-  --muted: #44403c;
-  --muted-foreground: #d6d3d1;
-  --accent: #44403c;
-  --accent-foreground: #f5f5f4;
-  --border: #57534e;
-  --input: #57534e;
-  --ring: #fca5a5;
-  --gender-masculine: #93c5fd;
-  --gender-masculine-foreground: #bfdbfe;
-  --gender-masculine-muted: #1e3a8a;
-  --gender-feminine: #fda4af;
-  --gender-feminine-foreground: #fecdd3;
-  --gender-feminine-muted: #881337;
-  --gender-neuter: #6ee7b7;
-  --gender-neuter-foreground: #a7f3d0;
-  --gender-neuter-muted: #064e3b;
-  --gender-plural: #c4b5fd;
-  --gender-plural-foreground: #ddd6fe;
-  --gender-plural-muted: #4c1d95;
-  --cefr: #fcd34d;
-  --cefr-foreground: #fde68a;
-  --cefr-muted: #78350f;
 }

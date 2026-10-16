@@ -10,6 +10,7 @@ function sleep(ms: number): Promise<void> {
 async function fetchWithRetry(
   url: string,
   timeoutMs = DEFAULT_TIMEOUT_MS,
+  headers?: HeadersInit,
 ): Promise<Response> {
   let lastError: unknown;
 
@@ -23,6 +24,7 @@ async function fetchWithRetry(
         headers: {
           Accept: "text/html, application/json",
           "User-Agent": "WortNetz/0.1 (+https://wortnetz.example)",
+          ...headers,
         },
         signal: controller.signal,
         cache: "no-store",
@@ -64,15 +66,17 @@ async function fetchWithRetry(
 export async function fetchJson<T>(
   url: string,
   timeoutMs = DEFAULT_TIMEOUT_MS,
+  headers?: HeadersInit,
 ): Promise<T> {
-  const response = await fetchWithRetry(url, timeoutMs);
+  const response = await fetchWithRetry(url, timeoutMs, headers);
   return (await response.json()) as T;
 }
 
 export async function fetchText(
   url: string,
   timeoutMs = DEFAULT_TIMEOUT_MS,
+  headers?: HeadersInit,
 ): Promise<string> {
-  const response = await fetchWithRetry(url, timeoutMs);
+  const response = await fetchWithRetry(url, timeoutMs, headers);
   return response.text();
 }

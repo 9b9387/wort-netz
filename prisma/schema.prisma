@@ -17,6 +17,9 @@ model Profile {
   encounters  Encounter[]
   userLexemes UserLexeme[]
   wordNotes   UserWordNote[]
+  llmConfig   UserLlmConfig?
+  aiThreads   AiThread[]
+  aiMessages  AiMessage[]
 
   @@map("profiles")
 }
@@ -46,6 +49,9 @@ model Lexeme {
   wordNotes        UserWordNote[]
   lexemeSynsets    LexemeSynset[]
   vocabularyLevels LexemeVocabularyLevel[]
+  aiThreads        AiThread[]
+  relationsFrom    LexemeRelation[]        @relation("LexemeRelationSource")
+  relationsTo      LexemeRelation[]        @relation("LexemeRelationTarget")
 
   @@index([wordType])
   @@index([frequencyClass])
@@ -68,23 +74,23 @@ model Encounter {
 }
 
 model UserLexeme {
-  userId          String    @map("user_id") @db.Uuid
-  lexemeId        String    @map("lexeme_id") @db.Uuid
-  firstSeenAt     DateTime  @default(now()) @map("first_seen_at") @db.Timestamptz(6)
-  lastSeenAt      DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(6)
-  encounterCount  Int       @default(0) @map("encounter_count")
-  isFavorite      Boolean   @default(false) @map("is_favorite")
-  status          String    @default("NEW") @map("status")
-  leitnerBox      Int       @default(0) @map("leitner_box")
-  dueAt           DateTime? @map("due_at") @db.Timestamptz(6)
-  intervalDays    Int       @default(0) @map("interval_days")
-  easeFactor      Float     @default(2.5) @map("ease_factor")
-  repetitions     Int       @default(0)
-  lapses          Int       @default(0)
-  lastReviewedAt  DateTime? @map("last_reviewed_at") @db.Timestamptz(6)
+  userId         String    @map("user_id") @db.Uuid
+  lexemeId       String    @map("lexeme_id") @db.Uuid
+  firstSeenAt    DateTime  @default(now()) @map("first_seen_at") @db.Timestamptz(6)
+  lastSeenAt     DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+  encounterCount Int       @default(0) @map("encounter_count")
+  isFavorite     Boolean   @default(false) @map("is_favorite")
+  status         String    @default("NEW") @map("status")
+  leitnerBox     Int       @default(0) @map("leitner_box")
+  dueAt          DateTime? @map("due_at") @db.Timestamptz(6)
+  intervalDays   Int       @default(0) @map("interval_days")
+  easeFactor     Float     @default(2.5) @map("ease_factor")
+  repetitions    Int       @default(0)
+  lapses         Int       @default(0)
+  lastReviewedAt DateTime? @map("last_reviewed_at") @db.Timestamptz(6)
 
-  profile  Profile      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  lexeme   Lexeme       @relation(fields: [lexemeId], references: [id], onDelete: Cascade)
+  profile Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lexeme  Lexeme  @relation(fields: [lexemeId], references: [id], onDelete: Cascade)
 
   @@id([userId, lexemeId])
   @@index([userId, lastSeenAt(sort: Desc)])
@@ -93,11 +99,14 @@ model UserLexeme {
 }
 
 model UserWordNote {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId    String   @map("user_id") @db.Uuid
-  lexemeId  String   @map("lexeme_id") @db.Uuid
-  content   String   @default("")
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId             String    @map("user_id") @db.Uuid
+  lexemeId           String    @map("lexeme_id") @db.Uuid
+  content            String    @default("")
+  aiIntroContent     String?   @map("ai_intro_content")
+  aiIntroConfigHash  String?   @map("ai_intro_config_hash")
+  aiIntroGeneratedAt DateTime? @map("ai_intro_generated_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   profile Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
   lexeme  Lexeme  @relation(fields: [lexemeId], references: [id], onDelete: Cascade)
@@ -105,6 +114,79 @@ model UserWordNote {
   @@unique([userId, lexemeId])
   @@index([userId, updatedAt(sort: Desc)])
   @@map("user_word_notes")
+}
+
+model UserLlmConfig {
+  userId           String   @id @map("user_id") @db.Uuid
+  baseUrl          String   @map("base_url")
+  apiKeyCiphertext Json     @map("api_key_ciphertext")
+  model            String
+  temperature      Float?
+  maxTokens        Int?     @map("max_tokens")
+  timeoutMs        Int?     @map("timeout_ms")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  profile Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_llm_configs")
+}
+
+model AiThread {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  lexemeId      String?  @map("lexeme_id") @db.Uuid
+  kind          String   @default("general")
+  title         String?
+  lastMessageAt DateTime @default(now()) @map("last_message_at") @db.Timestamptz(6)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  profile  Profile     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lexeme   Lexeme?     @relation(fields: [lexemeId], references: [id], onDelete: SetNull)
+  messages AiMessage[]
+
+  @@index([userId, lastMessageAt(sort: Desc)])
+  @@index([lexemeId])
+  @@map("ai_threads")
+}
+
+model AiMessage {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  threadId   String   @map("thread_id") @db.Uuid
+  role       String
+  content    String
+  model      String?
+  configHash String?  @map("config_hash")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  profile Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  thread  AiThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("ai_messages")
+}
+
+model LexemeRelation {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sourceLexemeId        String   @map("source_lexeme_id") @db.Uuid
+  targetLexemeId        String?  @map("target_lexeme_id") @db.Uuid
+  targetLemma           String   @map("target_lemma")
+  targetNormalizedLemma String   @map("target_normalized_lemma")
+  relationType          String   @default("synonym") @map("relation_type")
+  sourceName            String   @default("openthesaurus") @map("source_name")
+  sourceData            Json     @default("{}") @map("source_data")
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  sourceLexeme Lexeme  @relation("LexemeRelationSource", fields: [sourceLexemeId], references: [id], onDelete: Cascade)
+  targetLexeme Lexeme? @relation("LexemeRelationTarget", fields: [targetLexemeId], references: [id], onDelete: SetNull)
+
+  @@unique([sourceLexemeId, targetNormalizedLemma, relationType, sourceName])
+  @@index([sourceLexemeId, relationType])
+  @@index([targetLexemeId, relationType])
+  @@map("lexeme_relations")
 }
 
 model DwdsCache {
@@ -278,4 +360,14 @@ model LexemeVocabularyLevel {
   @@id([lexemeId, level])
   @@index([level])
   @@map("lexeme_vocabulary_levels")
+}
+
+/// Cached example sentences fetched from the Tatoeba API, keyed by the
+/// normalized lemma so repeated word-page visits never hit the network twice.
+model TatoebaCache {
+  query     String   @id
+  payload   Json
+  fetchedAt DateTime @default(now()) @map("fetched_at") @db.Timestamptz(6)
+
+  @@map("tatoeba_cache")
 }

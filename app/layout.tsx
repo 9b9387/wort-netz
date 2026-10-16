@@ -1,13 +1,22 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Geist, JetBrains_Mono, Newsreader } from "next/font/google";
+import {
+  Hanken_Grotesk,
+  JetBrains_Mono,
+  Newsreader,
+} from "next/font/google";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+const hankenGrotesk = Hanken_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-hanken",
+  weight: ["400", "500", "600"],
+});
 const newsreader = Newsreader({
   subsets: ["latin"],
   variable: "--font-newsreader",
+  style: ["normal", "italic"],
   weight: ["400", "500", "600"],
 });
 const jetbrainsMono = JetBrains_Mono({
@@ -27,7 +36,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={cn(
         "h-full antialiased",
         "font-sans",
-        geist.variable,
+        hankenGrotesk.variable,
         newsreader.variable,
         jetbrainsMono.variable,
       )}

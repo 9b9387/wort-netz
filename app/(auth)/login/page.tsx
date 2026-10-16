@@ -52,7 +52,10 @@ async function LoginContent({
         errorMessage={t.authError}
         autoComplete="current-password"
         footer={
-          <Link className="text-emerald-700 hover:underline" href="/signup">
+          <Link
+            className="font-medium text-primary underline-offset-4 hover:underline"
+            href="/signup"
+          >
             {t.toSignup}
           </Link>
         }

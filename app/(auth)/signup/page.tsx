@@ -19,7 +19,10 @@ export default function SignupPage() {
         errorMessage={t.authError}
         autoComplete="new-password"
         footer={
-          <Link className="text-emerald-700 hover:underline" href="/login">
+          <Link
+            className="font-medium text-primary underline-offset-4 hover:underline"
+            href="/login"
+          >
             {t.toLogin}
           </Link>
         }

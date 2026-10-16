@@ -14,7 +14,6 @@ const noteSchema = z.object({
   lexemeId: z.string().uuid(),
   content: z.string().trim().max(5000),
 });
-
 export async function saveWordNote(
   _previousState: WordStudyState,
   formData: FormData,
