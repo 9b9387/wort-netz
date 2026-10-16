@@ -9,6 +9,21 @@ type SpeakOptions = {
 };
 
 /**
+ * Picks the best available German voice: an exact de-DE match first, then any
+ * German variant. Shared by the entry pronunciation control and the reader's
+ * long-form reader.
+ */
+export function selectGermanVoice(
+  voices: readonly SpeechSynthesisVoice[],
+): SpeechSynthesisVoice | null {
+  return (
+    voices.find((voice) => voice.lang.toLowerCase() === "de-de") ??
+    voices.find((voice) => voice.lang.toLowerCase().startsWith("de")) ??
+    null
+  );
+}
+
+/**
  * German speech synthesis with a preferred de-DE voice. Shared by the entry
  * pronunciation control and the per-sentence speak buttons.
  */
@@ -21,21 +36,19 @@ export function useGermanSpeech() {
       return;
     }
 
-    const selectGermanVoice = () => {
-      const voices = window.speechSynthesis.getVoices();
-      germanVoiceRef.current =
-        voices.find((voice) => voice.lang.toLowerCase() === "de-de") ??
-        voices.find((voice) => voice.lang.toLowerCase().startsWith("de")) ??
-        null;
+    const refreshVoice = () => {
+      germanVoiceRef.current = selectGermanVoice(
+        window.speechSynthesis.getVoices(),
+      );
     };
 
-    selectGermanVoice();
-    window.speechSynthesis.addEventListener("voiceschanged", selectGermanVoice);
+    refreshVoice();
+    window.speechSynthesis.addEventListener("voiceschanged", refreshVoice);
 
     return () => {
       window.speechSynthesis.removeEventListener(
         "voiceschanged",
-        selectGermanVoice,
+        refreshVoice,
       );
     };
   }, []);

@@ -28,6 +28,48 @@ type CachedPayload = {
   sentences: TatoebaSentence[];
 };
 
+/**
+ * Set when the cache table is missing (migration not applied yet). Example
+ * sentences then keep working straight from the API, without repeated logs.
+ */
+let cacheDisabled = false;
+let cacheDisabledLogged = false;
+
+function isMissingTableError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const { code, message } = error as { code?: unknown; message?: unknown };
+
+  if (code === "P2021") {
+    return true;
+  }
+
+  return (
+    typeof message === "string" &&
+    /(does not exist|doesn't exist|undefined table)/i.test(message)
+  );
+}
+
+function disableCache(): void {
+  cacheDisabled = true;
+
+  if (cacheDisabledLogged) {
+    return;
+  }
+
+  cacheDisabledLogged = true;
+  console.warn(
+    "tatoeba_cache table is missing, so Tatoeba example sentences are fetched without caching. Run `npm run db:migrate` to create it.",
+  );
+}
+
+function logFailure(message: string, error: unknown): void {
+  const detail = error instanceof Error ? error.message : String(error);
+  console.error(`${message}: ${detail}`);
+}
+
 function searchUrl(lemma: string, withTranslation: boolean): string {
   const url = new URL(`${TATOEBA_BASE_URL}/search`);
   url.searchParams.set("from", SOURCE_LANGUAGE);
@@ -103,6 +145,10 @@ function readCachedPayload(payload: unknown): TatoebaSentence[] | null {
 async function readCache(
   query: string,
 ): Promise<{ sentences: TatoebaSentence[]; fresh: boolean } | null> {
+  if (cacheDisabled) {
+    return null;
+  }
+
   try {
     const cached = await prisma.tatoebaCache.findUnique({ where: { query } });
 
@@ -121,10 +167,12 @@ async function readCache(
       fresh: cached.fetchedAt.getTime() > Date.now() - CACHE_TTL_MS,
     };
   } catch (error) {
-    console.error("Tatoeba cache read failed", {
-      query,
-      error: error instanceof Error ? error.message : String(error),
-    });
+    if (isMissingTableError(error)) {
+      disableCache();
+      return null;
+    }
+
+    logFailure(`Tatoeba cache read failed for "${query}"`, error);
     return null;
   }
 }
@@ -133,6 +181,10 @@ async function writeCache(
   query: string,
   sentences: TatoebaSentence[],
 ): Promise<void> {
+  if (cacheDisabled) {
+    return;
+  }
+
   const payload = {
     version: CACHE_VERSION,
     sentences,
@@ -151,10 +203,12 @@ async function writeCache(
       },
     });
   } catch (error) {
-    console.error("Tatoeba cache write failed", {
-      query,
-      error: error instanceof Error ? error.message : String(error),
-    });
+    if (isMissingTableError(error)) {
+      disableCache();
+      return;
+    }
+
+    logFailure(`Tatoeba cache write failed for "${query}"`, error);
   }
 }
 
@@ -205,10 +259,7 @@ export async function getTatoebaSentences(input: {
 
     return sentences.slice(0, limit);
   } catch (error) {
-    console.error("Tatoeba lookup failed", {
-      lemma: input.lemma,
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logFailure(`Tatoeba lookup failed for "${input.lemma}"`, error);
 
     return cached?.sentences.slice(0, limit) ?? [];
   }

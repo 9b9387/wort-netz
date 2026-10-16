@@ -11,6 +11,8 @@ model Profile {
   id          String   @id @db.Uuid
   displayName String?  @map("display_name")
   uiLocale    String   @default("zh") @map("ui_locale")
+  /// Whether the AI assistant sidebar is expanded, remembered per user.
+  aiPanelOpen Boolean  @default(true) @map("ai_panel_open")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -20,6 +22,7 @@ model Profile {
   llmConfig   UserLlmConfig?
   aiThreads   AiThread[]
   aiMessages  AiMessage[]
+  articles    Article[]
 
   @@map("profiles")
 }
@@ -114,6 +117,27 @@ model UserWordNote {
   @@unique([userId, lexemeId])
   @@index([userId, updatedAt(sort: Desc)])
   @@map("user_word_notes")
+}
+
+/// A pasted article the user annotates on /reader. There is no separate title
+/// column: `excerpt` and `charCount` are derived from `content` on save and only
+/// exist to keep the article list query cheap.
+model Article {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  content   String   @default("")
+  excerpt   String   @default("")
+  charCount Int      @default(0) @map("char_count")
+  /// Snapshot of the last annotation: how many distinct words were unlearned.
+  /// `null` means the article has not been opened since the reader shipped.
+  unlearnedCount Int? @map("unlearned_count")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  profile Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, updatedAt(sort: Desc)])
+  @@map("articles")
 }
 
 model UserLlmConfig {

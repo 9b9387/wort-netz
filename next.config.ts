@@ -3,7 +3,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /* config options here */
   experimental: {
-    agentFeedback: true,
+    // Disabled: Next.js telemetry-backed agent feedback is opt-in again.
+    agentFeedback: false,
   },
   cacheComponents: true,
   partialPrefetching: true,

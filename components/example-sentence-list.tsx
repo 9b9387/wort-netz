@@ -2,6 +2,7 @@
 
 import { SpeakButton } from "@/components/speak-button";
 import { TranslatedText } from "@/components/word-translation";
+import { ClickableGermanText } from "@/components/word-link";
 import type { ExampleSentence } from "@/lib/example-sentences";
 
 /**
@@ -32,7 +33,7 @@ export function ExampleSentenceList({
 
           <div className="flex min-w-0 flex-col gap-1.5">
             <p className="font-display text-lg italic leading-7 text-ink-secondary">
-              {sentence.text}
+              <ClickableGermanText text={sentence.text} />
             </p>
 
             {sentence.translation ? (

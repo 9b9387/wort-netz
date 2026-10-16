@@ -41,9 +41,9 @@ export type TranslatorController = {
 export const WordTranslationContext =
   React.createContext<TranslatorController | null>(null);
 
-function pairFor(target: TranslationTarget) {
+function pairFor(sourceLanguage: string, target: TranslationTarget) {
   return {
-    sourceLanguage: TRANSLATION_SOURCE_LANGUAGE,
+    sourceLanguage,
     targetLanguage: target,
   };
 }
@@ -52,7 +52,9 @@ function pairFor(target: TranslationTarget) {
  * Creates one translator per target language, translating every distinct string
  * at most once and keeping results in memory for the rest of the session.
  */
-export function useTranslatorController(): TranslatorController {
+export function useTranslatorController(
+  sourceLanguage: string = TRANSLATION_SOURCE_LANGUAGE,
+): TranslatorController {
   const [target, setTarget] = React.useState<TranslationTarget>(
     TRANSLATION_TARGETS[0].code,
   );
@@ -63,14 +65,64 @@ export function useTranslatorController(): TranslatorController {
   const translatorRef = React.useRef<TranslatorInstance | null>(null);
   const cacheRef = React.useRef(new Map<string, string>());
   const inflightRef = React.useRef(new Map<string, Promise<string | null>>());
+  const creatingRef = React.useRef(false);
+  /** Bumped whenever the pair changes, so stale downloads stop updating state. */
+  const generationRef = React.useRef(0);
 
   const cacheKey = React.useCallback(
-    (text: string) => `${target}\u0000${text}`,
-    [target],
+    (text: string) => `${sourceLanguage}\u0000${target}\u0000${text}`,
+    [sourceLanguage, target],
   );
+
+  /**
+   * Starts (or joins) the language-pack download. Chrome reports
+   * `availability() === "downloading"` when a previous attempt already started
+   * the download; calling `create()` then waits for it and reports progress
+   * instead of leaving the UI stuck without a translator and without a button.
+   */
+  const startDownload = React.useCallback(() => {
+    const adapter = adapterRef.current;
+
+    if (!adapter || creatingRef.current) {
+      return;
+    }
+
+    const generation = generationRef.current;
+    creatingRef.current = true;
+    setStatus("downloading");
+    setProgress(0);
+
+    adapter
+      .create(pairFor(sourceLanguage, target), (ratio) => {
+        if (generation === generationRef.current) {
+          setProgress(ratio);
+        }
+      })
+      .then((translator) => {
+        if (generation !== generationRef.current) {
+          return;
+        }
+
+        translatorRef.current = translator;
+        setProgress(null);
+        setStatus("ready");
+      })
+      .catch(() => {
+        if (generation !== generationRef.current) {
+          return;
+        }
+
+        setProgress(null);
+        setStatus("error");
+      })
+      .finally(() => {
+        creatingRef.current = false;
+      });
+  }, [sourceLanguage, target]);
 
   React.useEffect(() => {
     let cancelled = false;
+    generationRef.current += 1;
 
     const probe = async () => {
       // Yield first so every state update below happens outside the effect body.
@@ -90,7 +142,9 @@ export function useTranslatorController(): TranslatorController {
       adapterRef.current = adapter;
 
       try {
-        const availability = await adapter.availability(pairFor(target));
+        const availability = await adapter.availability(
+          pairFor(sourceLanguage, target),
+        );
 
         if (cancelled) {
           return;
@@ -98,7 +152,9 @@ export function useTranslatorController(): TranslatorController {
 
         if (availability === "available") {
           try {
-            const translator = await adapter.create(pairFor(target));
+            const translator = await adapter.create(
+              pairFor(sourceLanguage, target),
+            );
 
             if (cancelled) {
               return;
@@ -121,7 +177,8 @@ export function useTranslatorController(): TranslatorController {
         }
 
         if (availability === "downloading") {
-          setStatus("downloading");
+          // Already being fetched: wait for it instead of getting stuck.
+          startDownload();
           return;
         }
 
@@ -137,31 +194,17 @@ export function useTranslatorController(): TranslatorController {
 
     return () => {
       cancelled = true;
+      generationRef.current += 1;
     };
-  }, [target]);
+  }, [sourceLanguage, startDownload, target]);
 
   const enable = React.useCallback(() => {
-    const adapter = adapterRef.current;
-
-    if (!adapter || status === "downloading" || status === "ready") {
+    if (status === "ready") {
       return;
     }
 
-    setStatus("downloading");
-    setProgress(0);
-
-    adapter
-      .create(pairFor(target), (ratio) => setProgress(ratio))
-      .then((translator) => {
-        translatorRef.current = translator;
-        setProgress(null);
-        setStatus("ready");
-      })
-      .catch(() => {
-        setProgress(null);
-        setStatus("error");
-      });
-  }, [status, target]);
+    startDownload();
+  }, [startDownload, status]);
 
   const translate = React.useCallback(
     async (text: string): Promise<string | null> => {

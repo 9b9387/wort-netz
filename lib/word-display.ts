@@ -6,22 +6,27 @@
 const FREQUENCY_MAX_STARS = 6;
 
 /**
- * DWDS frequency classes run from 1 (most frequent) to 6 (rarest). The scale is
- * inverted for the star rating shown in the entry header.
+ * DWDS frequency classes grow with frequency: verified against the live API,
+ * "und"/"ich"/"nicht" come back as 6 while rare words such as "Xylophon" come
+ * back as 1. The star rating therefore follows the class directly — 6 stars is
+ * a very frequent word, 1 star a rare one — so the stars and the "n/6" label
+ * next to them always agree.
+ *
+ * A non-positive class means DWDS returned no usable value (the API answers
+ * with 0 for some article forms); the caller hides the rating in that case.
  */
 export function frequencyStars(
   frequencyClass: number | null | undefined,
 ): number {
-  if (typeof frequencyClass !== "number" || !Number.isFinite(frequencyClass)) {
+  if (
+    typeof frequencyClass !== "number" ||
+    !Number.isFinite(frequencyClass) ||
+    frequencyClass <= 0
+  ) {
     return 0;
   }
 
-  const clamped = Math.min(
-    Math.max(Math.round(frequencyClass), 1),
-    FREQUENCY_MAX_STARS,
-  );
-
-  return FREQUENCY_MAX_STARS + 1 - clamped;
+  return Math.min(Math.max(Math.round(frequencyClass), 1), FREQUENCY_MAX_STARS);
 }
 
 export function frequencyStarTotal(): number {
@@ -87,6 +92,40 @@ export type ResolvedDefinitions = {
   items: string[];
 };
 
+export type DefinitionSets = {
+  german: string[];
+  english: string[];
+};
+
+function uniqueDefinitions(
+  values: readonly string[],
+  limit: number,
+): string[] {
+  return Array.from(
+    new Set(values.map((value) => value.trim()).filter(Boolean)),
+  ).slice(0, limit);
+}
+
+/**
+ * The entry page shows the English senses (with a Chinese translation) above the
+ * German ones, so both lists are returned separately instead of one replacing
+ * the other.
+ */
+export function resolveDefinitionSets({
+  german,
+  english,
+  limit = 8,
+}: {
+  german: readonly string[];
+  english: readonly string[];
+  limit?: number;
+}): DefinitionSets {
+  return {
+    german: uniqueDefinitions(german, limit),
+    english: uniqueDefinitions(english, limit),
+  };
+}
+
 /**
  * The entry shows German definitions first. The English dictionary text is only
  * used as a fallback when no German definition exists at all.
@@ -100,21 +139,14 @@ export function resolveDefinitions({
   english: readonly string[];
   limit?: number;
 }): ResolvedDefinitions {
-  const unique = (values: readonly string[]) =>
-    Array.from(
-      new Set(values.map((value) => value.trim()).filter(Boolean)),
-    ).slice(0, limit);
+  const sets = resolveDefinitionSets({ german, english, limit });
 
-  const germanItems = unique(german);
-
-  if (germanItems.length > 0) {
-    return { source: "de", items: germanItems };
+  if (sets.german.length > 0) {
+    return { source: "de", items: sets.german };
   }
 
-  const englishItems = unique(english);
-
-  if (englishItems.length > 0) {
-    return { source: "en", items: englishItems };
+  if (sets.english.length > 0) {
+    return { source: "en", items: sets.english };
   }
 
   return { source: null, items: [] };

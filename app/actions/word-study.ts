@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/server/auth";
+import { invalidateUserFormIndex } from "@/lib/reader/analyze";
+import { WORD_STATUSES, type WordStatus } from "@/lib/wordbook/status";
 
 export type WordStudyState = {
   message?: string;
@@ -88,4 +90,51 @@ export async function toggleFavorite(
   });
 
   revalidatePath(`/words/${parsed.data}`);
+}
+
+const statusSchema = z.object({
+  lexemeId: z.string().uuid(),
+  status: z.enum(WORD_STATUSES),
+});
+
+export async function setWordStatus(
+  lexemeId: string,
+  status: WordStatus,
+): Promise<{ ok: boolean }> {
+  const user = await requireUser();
+  const parsed = statusSchema.safeParse({ lexemeId, status });
+
+  if (!parsed.success) {
+    return { ok: false };
+  }
+
+  const lexeme = await prisma.lexeme.findUnique({
+    where: { id: parsed.data.lexemeId },
+    select: { id: true },
+  });
+
+  if (!lexeme) {
+    return { ok: false };
+  }
+
+  await prisma.userLexeme.upsert({
+    where: {
+      userId_lexemeId: {
+        userId: user.id,
+        lexemeId: parsed.data.lexemeId,
+      },
+    },
+    update: { status: parsed.data.status },
+    create: {
+      userId: user.id,
+      lexemeId: parsed.data.lexemeId,
+      status: parsed.data.status,
+    },
+  });
+
+  revalidatePath("/words");
+  revalidatePath(`/words/${parsed.data.lexemeId}`);
+  invalidateUserFormIndex(user.id);
+
+  return { ok: true };
 }

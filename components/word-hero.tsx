@@ -5,15 +5,20 @@ import { FavoriteButton } from "@/components/favorite-button";
 import { GenderBadge, getGenderInfo } from "@/components/gender-badge";
 import { PronunciationBar } from "@/components/pronunciation-bar";
 import { WordDefinitions } from "@/components/word-definitions";
+import {
+  EnglishDefinitions,
+  type EnglishGlossLabels,
+} from "@/components/word-english-definitions";
 import type { TranslationLabels } from "@/components/word-translation";
 import { cn } from "@/lib/utils";
 import {
   frequencyStarTotal,
   frequencyStars,
-  type ResolvedDefinitions,
 } from "@/lib/word-display";
 
 export function WordHero({
+  compact = false,
+  surfaceForm = null,
   lexemeId,
   lemma,
   wordType,
@@ -24,15 +29,25 @@ export function WordHero({
   genitive,
   plural,
   isFavorite,
-  definitions,
+  germanDefinitions,
+  englishDefinitions,
   definitionLabel,
-  englishFallbackNote,
+  englishGlossLabels,
   frequencyLabel,
   genitiveLabel,
   pluralLabel,
+  lemmaLabel,
   labels,
   translationLabels,
+  actions,
 }: {
+  compact?: boolean;
+  /**
+   * The form as it appeared in the article ("willst"). When it differs from the
+   * lemma it becomes the headline, so the card matches what was clicked, and the
+   * dictionary lemma is called out next to it.
+   */
+  surfaceForm?: string | null;
   lexemeId: string;
   lemma: string;
   wordType: string | null;
@@ -43,27 +58,44 @@ export function WordHero({
   genitive: string | null;
   plural: string | null;
   isFavorite: boolean;
-  definitions: ResolvedDefinitions;
+  /** German senses; the card is hidden when the list is empty. */
+  germanDefinitions: string[];
+  /** English senses, shown above the German ones with a Chinese translation. */
+  englishDefinitions: string[];
   definitionLabel: string;
-  englishFallbackNote: string;
+  englishGlossLabels: EnglishGlossLabels;
   frequencyLabel: string;
   genitiveLabel: string;
   pluralLabel: string;
+  lemmaLabel: string;
   labels: {
     pronounce: string;
     favorite: string;
     favorited: string;
   };
   translationLabels: TranslationLabels;
+  /** Extra controls (add to word book, learning status) next to the favourite. */
+  actions?: React.ReactNode;
 }) {
   const genderInfo = getGenderInfo(gender, wordType);
   const stars = frequencyStars(frequencyClass);
   const starTotal = frequencyStarTotal();
-  const hasDefinitions = definitions.items.length > 0;
+  const hasGermanDefinitions = germanDefinitions.length > 0;
+  const shownSurface =
+    surfaceForm &&
+    surfaceForm.normalize("NFC").trim().toLowerCase() !==
+      lemma.normalize("NFC").trim().toLowerCase()
+      ? surfaceForm.trim()
+      : null;
 
   return (
     <Card className="relative overflow-hidden shadow-plate">
-      <CardContent className="flex flex-col gap-6 p-5 sm:p-8">
+      <CardContent
+        className={cn(
+          "flex flex-col",
+          compact ? "gap-4 p-4" : "gap-6 p-5 sm:p-8",
+        )}
+      >
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex flex-wrap items-center gap-2">
             <GenderBadge gender={gender} wordType={wordType} />
@@ -116,9 +148,24 @@ export function WordHero({
                   {genderInfo.article}
                 </span>
               )}
-              <h1 className="font-display text-4xl font-medium leading-none tracking-tight text-primary sm:text-[44px]">
-                {lemma}
+              <h1
+                className={cn(
+                  "font-display font-medium leading-none tracking-tight text-primary",
+                  compact ? "text-3xl" : "text-4xl sm:text-[44px]",
+                )}
+              >
+                {shownSurface ?? lemma}
               </h1>
+              {shownSurface && (
+                <span className="flex items-baseline gap-1.5 font-display text-lg text-muted-foreground">
+                  <span>
+                    {lemmaLabel}: {lemma}
+                  </span>
+                  {ipa && (
+                    <span className="font-code text-sm">[{ipa}]</span>
+                  )}
+                </span>
+              )}
               {plural && (
                 <span className="font-display text-lg text-muted-foreground">
                   ({pluralLabel}: {plural})
@@ -126,26 +173,37 @@ export function WordHero({
               )}
             </div>
 
-            <PronunciationBar text={lemma} label={labels.pronounce} ipa={ipa} />
+            <PronunciationBar
+              text={shownSurface ?? lemma}
+              label={labels.pronounce}
+              ipa={shownSurface ? null : ipa}
+            />
           </div>
 
-          <FavoriteButton
-            lexemeId={lexemeId}
-            isFavorite={isFavorite}
-            labels={{
-              favorite: labels.favorite,
-              favorited: labels.favorited,
-            }}
-          />
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <FavoriteButton
+              lexemeId={lexemeId}
+              isFavorite={isFavorite}
+              labels={{
+                favorite: labels.favorite,
+                favorited: labels.favorited,
+              }}
+            />
+            {actions}
+          </div>
         </div>
 
-        {hasDefinitions && (
+        {englishDefinitions.length > 0 && (
+          <EnglishDefinitions
+            items={englishDefinitions}
+            labels={englishGlossLabels}
+          />
+        )}
+
+        {hasGermanDefinitions && (
           <WordDefinitions
-            items={definitions.items}
+            items={germanDefinitions}
             label={definitionLabel}
-            fallbackNote={
-              definitions.source === "en" ? englishFallbackNote : null
-            }
             labels={translationLabels}
           />
         )}

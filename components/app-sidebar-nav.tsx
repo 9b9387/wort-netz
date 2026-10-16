@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BookOpenTextIcon,
+  LibraryIcon,
   LayoutDashboardIcon,
   RepeatIcon,
   SettingsIcon,
@@ -18,6 +20,8 @@ export function AppSidebarNav({
 }: {
   labels: {
     dashboard: string;
+    wordBook: string;
+    reader: string;
     review: string;
     aiSettings: string;
   };
@@ -25,6 +29,8 @@ export function AppSidebarNav({
   const pathname = usePathname();
   const items = [
     { href: "/dashboard", label: labels.dashboard, icon: LayoutDashboardIcon },
+    { href: "/words", label: labels.wordBook, icon: LibraryIcon },
+    { href: "/reader", label: labels.reader, icon: BookOpenTextIcon },
     { href: "/review", label: labels.review, icon: RepeatIcon },
     { href: "/settings/ai", label: labels.aiSettings, icon: SettingsIcon },
   ];

@@ -25,19 +25,32 @@ export async function proxy(request: NextRequest) {
     },
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // `getClaims()` verifies the JWT against the cached JWKS, which avoids a
+  // round trip to the Auth server on every navigation. It falls back to a
+  // server-side lookup when local verification is not possible.
+  const { data: claimsData, error: claimsError } =
+    await supabase.auth.getClaims();
+  let userId: string | null =
+    typeof claimsData?.claims?.sub === "string" ? claimsData.claims.sub : null;
+
+  if (claimsError || !userId) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    userId = user?.id ?? null;
+  }
 
   const pathname = request.nextUrl.pathname;
 
-  if (user && (pathname === "/login" || pathname === "/signup")) {
+  if (userId && (pathname === "/login" || pathname === "/signup")) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   if (
-    !user &&
-    (pathname.startsWith("/dashboard") || pathname.startsWith("/words"))
+    !userId &&
+    (pathname.startsWith("/dashboard") ||
+      pathname.startsWith("/words") ||
+      pathname.startsWith("/reader"))
   ) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", `${pathname}${request.nextUrl.search}`);

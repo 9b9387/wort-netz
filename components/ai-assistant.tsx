@@ -15,6 +15,7 @@ import {
   SparklesIcon,
 } from "lucide-react";
 import { MarkdownContent } from "@/components/markdown-content";
+import { setAiPanelOpen } from "@/app/actions/preferences";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -33,7 +34,7 @@ function uuid(): string {
   return crypto.randomUUID();
 }
 
-export function AiAssistant() {
+export function AiAssistant({ defaultOpen = true }: { defaultOpen?: boolean }) {
   const pathname = usePathname();
   const lexemeId =
     pathname.match(
@@ -41,13 +42,29 @@ export function AiAssistant() {
     )?.[1] ?? null;
 
   return (
-    <AiAssistantPanel key={lexemeId ?? "general"} lexemeId={lexemeId} />
+    <AiAssistantPanel
+      key={lexemeId ?? "general"}
+      lexemeId={lexemeId}
+      defaultOpen={defaultOpen}
+    />
   );
 }
 
-function AiAssistantPanel({ lexemeId }: { lexemeId: string | null }) {
+function AiAssistantPanel({
+  lexemeId,
+  defaultOpen,
+}: {
+  lexemeId: string | null;
+  defaultOpen: boolean;
+}) {
   const t = getDictionary("zh");
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(defaultOpen);
+  // The expanded state is a global user preference, so it survives reloads and
+  // applies to every page.
+  const toggleOpen = (next: boolean) => {
+    setOpen(next);
+    void setAiPanelOpen(next);
+  };
   const [threadId, setThreadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -248,7 +265,7 @@ function AiAssistantPanel({ lexemeId }: { lexemeId: string | null }) {
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                onClick={() => setOpen(false)}
+                onClick={() => toggleOpen(false)}
                 title={t.aiCollapse}
               >
                 <ChevronRightIcon />
@@ -385,7 +402,7 @@ function AiAssistantPanel({ lexemeId }: { lexemeId: string | null }) {
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => setOpen(true)}
+            onClick={() => toggleOpen(true)}
             title={t.aiExpand}
           >
             <SparklesIcon data-icon="inline-start" />

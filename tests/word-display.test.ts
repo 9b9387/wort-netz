@@ -2,21 +2,24 @@ import { describe, expect, it } from "vitest";
 import {
   frequencyStars,
   normalizeForms,
+  resolveDefinitionSets,
   resolveDefinitions,
 } from "../lib/word-display";
 
 describe("frequencyStars", () => {
-  it("inverts the DWDS frequency class into filled stars", () => {
-    expect(frequencyStars(1)).toBe(6);
-    expect(frequencyStars(3)).toBe(4);
-    expect(frequencyStars(6)).toBe(1);
+  it("follows the DWDS class so more stars mean a more frequent word", () => {
+    // Verified against the live API: "und" is class 6, "Xylophon" is class 1.
+    expect(frequencyStars(1)).toBe(1);
+    expect(frequencyStars(3)).toBe(3);
+    expect(frequencyStars(6)).toBe(6);
   });
 
-  it("handles missing and out-of-range values", () => {
+  it("handles missing, anomalous and out-of-range values", () => {
     expect(frequencyStars(null)).toBe(0);
     expect(frequencyStars(undefined)).toBe(0);
-    expect(frequencyStars(0)).toBe(6);
-    expect(frequencyStars(99)).toBe(1);
+    expect(frequencyStars(0)).toBe(0);
+    expect(frequencyStars(99)).toBe(6);
+    expect(frequencyStars(2.4)).toBe(2);
   });
 });
 
@@ -66,5 +69,35 @@ describe("resolveDefinitions", () => {
       source: null,
       items: [],
     });
+  });
+});
+
+describe("resolveDefinitionSets", () => {
+  it("returns both languages so English stays visible above the German card", () => {
+    expect(
+      resolveDefinitionSets({
+        german: ["Verlangen nach etwas"],
+        english: ["longing", "yearning"],
+      }),
+    ).toEqual({
+      german: ["Verlangen nach etwas"],
+      english: ["longing", "yearning"],
+    });
+  });
+
+  it("deduplicates, trims and limits each language separately", () => {
+    expect(
+      resolveDefinitionSets({
+        german: ["  a  ", "a", ""],
+        english: ["x", "x", "y"],
+        limit: 2,
+      }),
+    ).toEqual({ german: ["a"], english: ["x", "y"] });
+  });
+
+  it("keeps the German list empty when OdeNet has no German sense", () => {
+    expect(
+      resolveDefinitionSets({ german: [], english: ["longing"] }),
+    ).toEqual({ german: [], english: ["longing"] });
   });
 });

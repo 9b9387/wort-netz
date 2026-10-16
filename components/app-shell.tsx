@@ -58,6 +58,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <AppSidebarNav
                   labels={{
                     dashboard: t.dashboard,
+                    wordBook: t.wordBook,
+                    reader: t.reader,
                     review: t.review,
                     aiSettings: t.aiSettings,
                   }}
@@ -69,7 +71,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <SidebarRail />
       </Sidebar>
 
-      <SidebarInset>
+      <SidebarInset className="h-svh min-h-0 overflow-hidden">
         <header className="sticky top-0 flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4">
           <SidebarTrigger />
           <Separator orientation="vertical" className="mr-2 h-4" />
@@ -81,7 +83,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </header>
 
         <div className="flex min-h-0 flex-1 flex-col xl:flex-row">
-          <div className="flex min-w-0 flex-1 flex-col gap-6 p-6 md:p-8">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto p-6 md:p-8">
             {children}
           </div>
           <Suspense fallback={null}>
@@ -96,7 +98,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 function SidebarNavFallback() {
   return (
     <SidebarMenu>
-      {[0, 1, 2].map((index) => (
+      {[0, 1, 2, 3, 4].map((index) => (
         <SidebarMenuItem key={index}>
           <SidebarMenuButton disabled>
             <Skeleton className="size-4" />

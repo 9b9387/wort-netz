@@ -70,6 +70,19 @@
   --color-ochre-foreground: var(--ochre-foreground);
   --color-burgundy-tint: var(--burgundy-tint);
   --color-burgundy-border: var(--burgundy-border);
+  --color-status-learned: var(--status-learned);
+  --color-status-learned-foreground: var(--status-learned-foreground);
+  --color-status-learned-muted: var(--status-learned-muted);
+  --color-status-learned-border: var(--status-learned-border);
+  --color-status-unlearned: var(--status-unlearned);
+  --color-status-unlearned-foreground: var(--status-unlearned-foreground);
+  --color-status-unlearned-muted: var(--status-unlearned-muted);
+  --color-status-unlearned-border: var(--status-unlearned-border);
+  --color-phrase: var(--phrase);
+  --color-phrase-foreground: var(--phrase-foreground);
+  --color-phrase-muted: var(--phrase-muted);
+  --color-phrase-border: var(--phrase-border);
+  --color-function: var(--function);
   --shadow-plate: 0 2px 8px -2px rgb(43 38 37 / 0.05),
     0 8px 24px -4px rgb(43 38 37 / 0.07);
   --radius-sm: calc(var(--radius) * 0.6);
@@ -152,6 +165,19 @@ body {
   --ochre-foreground: #9c5b23;
   --burgundy-tint: #f7ebe9;
   --burgundy-border: #ebd0cc;
+  --status-learned: #5a6856;
+  --status-learned-foreground: #3d4a3a;
+  --status-learned-muted: #edf1eb;
+  --status-learned-border: #cbd5c8;
+  --status-unlearned: #c4823f;
+  --status-unlearned-foreground: #9c5b23;
+  --status-unlearned-muted: #fbf3e8;
+  --status-unlearned-border: #ebd5be;
+  --phrase: #5b6c8f;
+  --phrase-foreground: #33405c;
+  --phrase-muted: #dbe3f2;
+  --phrase-border: #b6c4dd;
+  --function: #7b7166;
 }
 
 @layer base {
@@ -164,4 +190,34 @@ body {
   html {
     @apply font-sans;
   }
+}
+
+/*
+ * Panes that scroll inside the app shell. The OS hides overlay scrollbars by
+ * default, so these get an always-visible bar drawn with theme tokens.
+ */
+.scroll-area {
+  overflow-y: scroll;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.scroll-area::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.scroll-area::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scroll-area::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  background-clip: content-box;
+  border: 2px solid transparent;
+  border-radius: 9999px;
+}
+
+.scroll-area::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted-foreground);
 }

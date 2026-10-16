@@ -1,0 +1,147 @@
+/**
+ * Everyday German fixed expressions that are missing from the imported OdeNet
+ * and wordfeather vocabularies (greetings, discourse markers, common
+ * collocations). `gloss` is the short Chinese meaning shown in the detail pane.
+ *
+ * Reflexive expressions ("sich freuen auf") are deliberately absent: the
+ * reflexive pronoun is usually a different word form in running text
+ * ("freue mich auf"), which the phrase matcher cannot align.
+ */
+
+export type SupplementalPhrase = {
+  /** Display form, e.g. "Bis bald". */
+  phrase: string;
+  gloss: string;
+  /** OdeNet-style part of speech; "v" allows the trailing infinitive to move. */
+  pos?: "n" | "v" | "a" | "r";
+};
+
+export const SUPPLEMENTAL_PHRASES: SupplementalPhrase[] = [
+  { phrase: "Bis bald", gloss: "回头见", pos: "r" },
+  { phrase: "Bis später", gloss: "待会儿见", pos: "r" },
+  { phrase: "Bis gleich", gloss: "马上见", pos: "r" },
+  { phrase: "Bis morgen", gloss: "明天见", pos: "r" },
+  { phrase: "Bis dann", gloss: "到时候见", pos: "r" },
+  { phrase: "Guten Morgen", gloss: "早上好", pos: "r" },
+  { phrase: "Guten Tag", gloss: "你好（白天问候）", pos: "r" },
+  { phrase: "Guten Abend", gloss: "晚上好", pos: "r" },
+  { phrase: "Gute Nacht", gloss: "晚安", pos: "r" },
+  { phrase: "Auf Wiedersehen", gloss: "再见", pos: "r" },
+  { phrase: "Mach's gut", gloss: "保重", pos: "r" },
+  { phrase: "Alles Gute", gloss: "一切顺利；祝好", pos: "r" },
+  { phrase: "Herzlich willkommen", gloss: "热烈欢迎", pos: "r" },
+  { phrase: "Wie geht es dir", gloss: "你好吗", pos: "r" },
+  { phrase: "Wie geht's", gloss: "怎么样；你好吗", pos: "r" },
+  { phrase: "Freut mich", gloss: "很高兴（认识你）", pos: "r" },
+  { phrase: "Es tut mir leid", gloss: "对不起；很抱歉", pos: "r" },
+  { phrase: "Kein Problem", gloss: "没问题", pos: "r" },
+  { phrase: "Gern geschehen", gloss: "不客气", pos: "r" },
+  { phrase: "Nichts zu danken", gloss: "不用谢", pos: "r" },
+  { phrase: "Vielen Dank", gloss: "非常感谢", pos: "r" },
+  { phrase: "Vielen Dank im Voraus", gloss: "先行致谢", pos: "r" },
+  { phrase: "Bitte schön", gloss: "不客气；请", pos: "r" },
+  { phrase: "Viel Glück", gloss: "祝好运", pos: "r" },
+  { phrase: "Viel Spaß", gloss: "玩得开心", pos: "r" },
+  { phrase: "Gute Reise", gloss: "旅途愉快", pos: "r" },
+  { phrase: "Gute Besserung", gloss: "早日康复", pos: "r" },
+  { phrase: "Herzlichen Glückwunsch", gloss: "恭喜", pos: "r" },
+  { phrase: "Alles klar", gloss: "明白了；没问题", pos: "r" },
+  { phrase: "Macht nichts", gloss: "没关系", pos: "r" },
+  { phrase: "Zum Beispiel", gloss: "例如", pos: "r" },
+  { phrase: "Unter anderem", gloss: "其中；等等", pos: "r" },
+  { phrase: "Im Allgemeinen", gloss: "一般来说", pos: "r" },
+  { phrase: "Im Gegenteil", gloss: "相反", pos: "r" },
+  { phrase: "Auf jeden Fall", gloss: "无论如何；一定", pos: "r" },
+  { phrase: "Auf keinen Fall", gloss: "绝对不", pos: "r" },
+  { phrase: "In der Regel", gloss: "通常", pos: "r" },
+  { phrase: "In der Tat", gloss: "的确", pos: "r" },
+  { phrase: "Zum Glück", gloss: "幸好", pos: "r" },
+  { phrase: "Zum Schluss", gloss: "最后", pos: "r" },
+  { phrase: "Zum ersten Mal", gloss: "第一次", pos: "r" },
+  { phrase: "Nach wie vor", gloss: "一如既往", pos: "r" },
+  { phrase: "Hin und wieder", gloss: "偶尔", pos: "r" },
+  { phrase: "Ab und zu", gloss: "时不时", pos: "r" },
+  { phrase: "Von Zeit zu Zeit", gloss: "有时", pos: "r" },
+  { phrase: "Früher oder später", gloss: "迟早", pos: "r" },
+  { phrase: "Mehr oder weniger", gloss: "或多或少", pos: "r" },
+  { phrase: "Nach und nach", gloss: "逐渐", pos: "r" },
+  { phrase: "Schritt für Schritt", gloss: "一步一步", pos: "r" },
+  { phrase: "Im Großen und Ganzen", gloss: "总体而言", pos: "r" },
+  { phrase: "Letzten Endes", gloss: "最终", pos: "r" },
+  { phrase: "Im Grunde genommen", gloss: "基本上", pos: "r" },
+  { phrase: "Mit anderen Worten", gloss: "换句话说", pos: "r" },
+  { phrase: "Kurz gesagt", gloss: "简而言之", pos: "r" },
+  { phrase: "Nebenbei bemerkt", gloss: "顺便说一下", pos: "r" },
+  { phrase: "Im Übrigen", gloss: "此外", pos: "r" },
+  { phrase: "Ohne Zweifel", gloss: "毫无疑问", pos: "r" },
+  { phrase: "Meiner Meinung nach", gloss: "依我看", pos: "r" },
+  { phrase: "Aus meiner Sicht", gloss: "从我的角度看", pos: "r" },
+  { phrase: "Wie auch immer", gloss: "不管怎样", pos: "r" },
+  { phrase: "Trotz allem", gloss: "尽管如此", pos: "r" },
+  { phrase: "Im Endeffekt", gloss: "最终", pos: "r" },
+  { phrase: "Und so weiter", gloss: "等等", pos: "r" },
+  { phrase: "Das heißt", gloss: "也就是说", pos: "r" },
+  { phrase: "Zum einen", gloss: "一方面", pos: "r" },
+  { phrase: "Zum anderen", gloss: "另一方面", pos: "r" },
+  { phrase: "Im Vergleich zu", gloss: "与…相比", pos: "r" },
+  { phrase: "Im Namen von", gloss: "以…的名义", pos: "r" },
+  { phrase: "Im Voraus", gloss: "事先", pos: "r" },
+  { phrase: "Zu Hause", gloss: "在家", pos: "r" },
+  { phrase: "Nach Hause", gloss: "回家", pos: "r" },
+  { phrase: "Zu Fuß", gloss: "步行", pos: "r" },
+  { phrase: "Am Anfang", gloss: "起初", pos: "r" },
+  { phrase: "Am Ende", gloss: "最后", pos: "r" },
+  { phrase: "Am Wochenende", gloss: "周末", pos: "r" },
+  { phrase: "In der Nähe", gloss: "附近", pos: "r" },
+  { phrase: "Auf dem Land", gloss: "在乡下", pos: "r" },
+  { phrase: "In der Stadt", gloss: "在城里", pos: "r" },
+  { phrase: "Zur Zeit", gloss: "目前", pos: "r" },
+  { phrase: "Von Anfang an", gloss: "从一开始", pos: "r" },
+  { phrase: "Rund um die Uhr", gloss: "全天候", pos: "r" },
+  { phrase: "Unterwegs sein", gloss: "在路上；外出", pos: "v" },
+  { phrase: "Zur Verfügung stehen", gloss: "可供使用", pos: "v" },
+  { phrase: "Zur Verfügung stellen", gloss: "提供", pos: "v" },
+  { phrase: "In Frage kommen", gloss: "可以考虑", pos: "v" },
+  { phrase: "In Kauf nehmen", gloss: "接受（不利后果）", pos: "v" },
+  { phrase: "Abschied nehmen", gloss: "告别", pos: "v" },
+  { phrase: "Rücksicht nehmen", gloss: "体谅", pos: "v" },
+  { phrase: "Kritik üben", gloss: "提出批评", pos: "v" },
+  { phrase: "Eine Rolle spielen", gloss: "起作用", pos: "v" },
+  { phrase: "Bescheid geben", gloss: "通知", pos: "v" },
+  { phrase: "Bescheid wissen", gloss: "知道情况", pos: "v" },
+  { phrase: "In Anspruch nehmen", gloss: "使用；占用", pos: "v" },
+  { phrase: "Zur Welt kommen", gloss: "出生", pos: "v" },
+  { phrase: "Zum Ausdruck bringen", gloss: "表达", pos: "v" },
+  { phrase: "In Erfüllung gehen", gloss: "实现", pos: "v" },
+  { phrase: "Zur Sprache kommen", gloss: "被提及", pos: "v" },
+  { phrase: "Auf die Nerven gehen", gloss: "让人心烦", pos: "v" },
+  { phrase: "Im Stande sein", gloss: "有能力", pos: "v" },
+  { phrase: "Wert legen auf", gloss: "重视", pos: "v" },
+  { phrase: "Angst haben vor", gloss: "害怕", pos: "v" },
+  { phrase: "Lust haben auf", gloss: "想要", pos: "v" },
+  { phrase: "Spaß machen", gloss: "有意思", pos: "v" },
+  { phrase: "Weh tun", gloss: "疼", pos: "v" },
+  { phrase: "Zeit haben", gloss: "有时间", pos: "v" },
+  { phrase: "Recht haben", gloss: "说得对", pos: "v" },
+  { phrase: "Unrecht haben", gloss: "错了", pos: "v" },
+  { phrase: "Einen Termin vereinbaren", gloss: "预约", pos: "v" },
+  { phrase: "Einen Vortrag halten", gloss: "做报告", pos: "v" },
+  { phrase: "Eine Entscheidung treffen", gloss: "做决定", pos: "v" },
+  { phrase: "Verantwortung übernehmen", gloss: "承担责任", pos: "v" },
+  { phrase: "Kontakt aufnehmen", gloss: "取得联系", pos: "v" },
+  { phrase: "Es gibt", gloss: "有；存在", pos: "v" },
+  { phrase: "Es geht um", gloss: "关于；涉及", pos: "v" },
+  { phrase: "Es kommt darauf an", gloss: "视情况而定", pos: "v" },
+  { phrase: "Es handelt sich um", gloss: "涉及；指的是", pos: "v" },
+];
+
+const GLOSS_BY_PHRASE = new Map(
+  SUPPLEMENTAL_PHRASES.map((entry) => [
+    entry.phrase.normalize("NFC").trim().toLowerCase(),
+    entry,
+  ]),
+);
+
+export function supplementalPhrase(normalized: string) {
+  return GLOSS_BY_PHRASE.get(normalized) ?? null;
+}

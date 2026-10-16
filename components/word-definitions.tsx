@@ -7,6 +7,7 @@ import {
   TranslatedText,
   type TranslationLabels,
 } from "@/components/word-translation";
+import { ClickableGermanText } from "@/components/word-link";
 import { useWordTranslation } from "@/hooks/use-translator";
 
 /**
@@ -18,12 +19,10 @@ import { useWordTranslation } from "@/hooks/use-translator";
 export function WordDefinitions({
   items,
   label,
-  fallbackNote,
   labels,
 }: {
   items: string[];
   label: string;
-  fallbackNote: string | null;
   labels: TranslationLabels;
 }) {
   const { status } = useWordTranslation();
@@ -57,9 +56,9 @@ export function WordDefinitions({
           <Fragment key={item}>
             <div className={cellClass(index)}>
               {numbered && <span className={numberClass}>{index + 1}</span>}
-              <p className="font-display text-lg leading-7 text-foreground">
-                {item}
-              </p>
+                <p className="font-display text-lg leading-7 text-foreground">
+                  <ClickableGermanText text={item} />
+                </p>
             </div>
 
             {showTranslations && (
@@ -84,9 +83,6 @@ export function WordDefinitions({
         ))}
       </div>
 
-      {fallbackNote && (
-        <p className="text-xs text-muted-foreground">{fallbackNote}</p>
-      )}
     </div>
   );
 }

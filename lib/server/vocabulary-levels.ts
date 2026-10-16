@@ -25,6 +25,13 @@ function levelRank(level: string): number {
   return index === -1 ? Number.MAX_SAFE_INTEGER : index;
 }
 
+/** Sorts vocabulary levels from A1 to C2 for display. */
+export function sortVocabularyLevels<T extends { level: string }>(
+  rows: readonly T[],
+): T[] {
+  return [...rows].sort((a, b) => levelRank(a.level) - levelRank(b.level));
+}
+
 function wordfeatherPosFromDwds(wordType: string | null): string | null {
   if (!wordType) {
     return null;
@@ -79,7 +86,7 @@ export async function getVocabularyLevelsForLexeme(
     },
   });
 
-  return rows.sort((a, b) => levelRank(a.level) - levelRank(b.level));
+  return sortVocabularyLevels(rows);
 }
 
 export async function syncLexemeVocabularyLevels(lexeme: {

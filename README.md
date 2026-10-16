@@ -25,6 +25,8 @@
 - Tatoeba：`/api_v0/search?from=deu&query=<lemma>`，只保留命中该词或其词形、4–14 词的句子，优先带社区中文译文的句子
 - 外部响应缓存在 `dwds_cache` 表中，避免重复请求
 - Tatoeba 例句缓存在 `tatoeba_cache` 表中（按规范化 lemma 存储，TTL 30 天）
+- WordNet 释义/例句/关系词与用户无关，用 Next `use cache`（`cacheLife("days")` + `cacheTag("wordnet")`）跨请求复用；重新导入 OdeNet 后需重启 dev 服务或重新部署才能看到新数据
+- 登录态校验使用 `supabase.auth.getClaims()`（本地校验 JWT + 缓存 JWKS，避免每次请求都访问 Auth 服务），并用 `React.cache` 让页面、导航和 AI 面板共享同一次校验结果
 - 小写输入如果是较弱的动词形式，会尝试首字母大写后的名词词条，例如 `lampe → Lampe`
 
 ## 导入 OdeNet
