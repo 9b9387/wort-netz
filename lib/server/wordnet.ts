@@ -75,7 +75,13 @@ export async function syncLexemeToWordnet(lexeme: {
   wordType: string | null;
 }): Promise<number> {
   const partOfSpeech = wordnetPosFromDwds(lexeme.wordType);
-  let entries = await prisma.wordnetLexicalEntry.findMany({
+  /**
+   * A known Wortart must match: the old part-of-speech-free fallback attached an
+   * unrelated noun synset (and its English gloss) to entries whose POS-specific
+   * lookup came back empty — "wollen" as an adjective inherited the synset of
+   * the noun "Wollen". When DWDS gives no Wortart the lemma alone is all we have.
+   */
+  const entries = await prisma.wordnetLexicalEntry.findMany({
     where: {
       normalizedLemma: lexeme.normalizedLemma,
       ...(partOfSpeech ? { partOfSpeech } : {}),
@@ -88,23 +94,7 @@ export async function syncLexemeToWordnet(lexeme: {
       },
     },
   });
-  let matchType = partOfSpeech ? "lemma_pos" : "lemma";
-
-  if (entries.length === 0 && partOfSpeech) {
-    entries = await prisma.wordnetLexicalEntry.findMany({
-      where: {
-        normalizedLemma: lexeme.normalizedLemma,
-      },
-      select: {
-        senses: {
-          select: {
-            synsetId: true,
-          },
-        },
-      },
-    });
-    matchType = "lemma";
-  }
+  const matchType = partOfSpeech ? "lemma_pos" : "lemma";
 
   const synsetIds = Array.from(
     new Set(

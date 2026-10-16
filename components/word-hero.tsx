@@ -10,7 +10,9 @@ import {
   type EnglishGlossLabels,
 } from "@/components/word-english-definitions";
 import type { TranslationLabels } from "@/components/word-translation";
+import type { Translation } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
+import type { EnglishDefinitionItem } from "@/lib/word-senses";
 import {
   frequencyStarTotal,
   frequencyStars,
@@ -30,7 +32,8 @@ export function WordHero({
   plural,
   isFavorite,
   germanDefinitions,
-  englishDefinitions,
+  englishSenses,
+  t,
   definitionLabel,
   englishGlossLabels,
   frequencyLabel,
@@ -61,7 +64,8 @@ export function WordHero({
   /** German senses; the card is hidden when the list is empty. */
   germanDefinitions: string[];
   /** English senses, shown above the German ones with a Chinese translation. */
-  englishDefinitions: string[];
+  englishSenses: EnglishDefinitionItem[];
+  t: Translation;
   definitionLabel: string;
   englishGlossLabels: EnglishGlossLabels;
   frequencyLabel: string;
@@ -193,10 +197,11 @@ export function WordHero({
           </div>
         </div>
 
-        {englishDefinitions.length > 0 && (
+        {englishSenses.length > 0 && (
           <EnglishDefinitions
-            items={englishDefinitions}
+            items={englishSenses}
             labels={englishGlossLabels}
+            t={t}
           />
         )}
 

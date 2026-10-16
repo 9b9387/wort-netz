@@ -19,7 +19,8 @@
     "db:status": "prisma migrate status",
     "db:studio": "prisma studio",
     "db:import:odenet": "tsx scripts/import-odenet.ts",
-    "db:import:wordfeather": "tsx scripts/import-wordfeather.ts"
+    "db:import:wordfeather": "tsx scripts/import-wordfeather.ts",
+    "db:backfill:lexemes": "NODE_OPTIONS=--conditions=react-server tsx scripts/backfill-lexeme-entries.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

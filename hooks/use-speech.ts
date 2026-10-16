@@ -8,6 +8,13 @@ type SpeakOptions = {
   rate?: number;
 };
 
+export type SpeechItem = {
+  text: string;
+  rate?: number;
+  /** Silence played after this item before the next one starts. */
+  pauseAfterMs?: number;
+};
+
 /**
  * Picks the best available German voice: an exact de-DE match first, then any
  * German variant. Shared by the entry pronunciation control and the reader's
@@ -30,6 +37,12 @@ export function selectGermanVoice(
 export function useGermanSpeech() {
   const germanVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const [speaking, setSpeaking] = useState(false);
+  /**
+   * Bumped whenever playback is replaced or stopped. A running sequence checks
+   * the token before scheduling the next utterance, so an old chain cannot
+   * resume after the user moved on.
+   */
+  const sequenceRef = useRef(0);
 
   useEffect(() => {
     if (!("speechSynthesis" in window)) {
@@ -62,6 +75,7 @@ export function useGermanSpeech() {
       return;
     }
 
+    sequenceRef.current += 1;
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
@@ -79,5 +93,86 @@ export function useGermanSpeech() {
     window.speechSynthesis.speak(utterance);
   }, []);
 
-  return { speak, speaking };
+  /**
+   * Reads several texts one after another ("word, then sentence"). Each item
+   * can slow down or add a pause after itself.
+   */
+  const speakSequence = useCallback((items: readonly SpeechItem[]) => {
+    if (
+      typeof window === "undefined" ||
+      !("speechSynthesis" in window)
+    ) {
+      return;
+    }
+
+    const usable = items.filter((item) => item.text.trim());
+
+    if (usable.length === 0) {
+      return;
+    }
+
+    const token = sequenceRef.current + 1;
+    sequenceRef.current = token;
+    window.speechSynthesis.cancel();
+    setSpeaking(true);
+
+    const speakAt = (index: number) => {
+      if (token !== sequenceRef.current) {
+        return;
+      }
+
+      const item = usable[index];
+
+      if (!item) {
+        setSpeaking(false);
+        return;
+      }
+
+      const utterance = new SpeechSynthesisUtterance(item.text);
+      utterance.lang = "de-DE";
+      utterance.rate =
+        item.rate ?? (item.text.includes(" ") ? 0.95 : 0.8);
+
+      if (germanVoiceRef.current) {
+        utterance.voice = germanVoiceRef.current;
+      }
+
+      const advance = () => {
+        if (token !== sequenceRef.current) {
+          return;
+        }
+
+        if (item.pauseAfterMs && item.pauseAfterMs > 0) {
+          setTimeout(() => speakAt(index + 1), item.pauseAfterMs);
+          return;
+        }
+
+        speakAt(index + 1);
+      };
+
+      utterance.onend = advance;
+      utterance.onerror = () => {
+        if (token === sequenceRef.current) {
+          setSpeaking(false);
+        }
+      };
+
+      window.speechSynthesis.speak(utterance);
+    };
+
+    speakAt(0);
+  }, []);
+
+  /** Stops whatever is playing, including a queued sequence. */
+  const stop = useCallback(() => {
+    sequenceRef.current += 1;
+
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+
+    setSpeaking(false);
+  }, []);
+
+  return { speak, speakSequence, stop, speaking };
 }

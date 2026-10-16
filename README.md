@@ -29,6 +29,49 @@
 - 登录态校验使用 `supabase.auth.getClaims()`（本地校验 JWT + 缓存 JWKS，避免每次请求都访问 Auth 服务），并用 `React.cache` 让页面、导航和 AI 面板共享同一次校验结果
 - 小写输入如果是较弱的动词形式，会尝试首字母大写后的名词词条，例如 `lampe → Lampe`
 
+## 复习模块
+
+`/review` 用句子卡做 Leitner 间隔重复：卡片把目标词放进一个德语例句里高亮
+展示，朗读顺序固定为「先读单词，再读句子」，翻面后自评「忘记 / 记得」。
+
+- 排程：箱位 1–5 对应 `1 / 3 / 7 / 16 / 35` 天；`记得` 进一箱，`忘记` 退回
+  第 1 箱并当轮重现；第 5 箱再答对则标记为「已掌握」并退出队列。
+- 队列：词本里除「暂时不学 / 已掌握」外的词都参与，默认每次 20 张、每日新词
+  上限 20，两个值可在复习概览页调整。
+- 例句来源：Tatoeba（优先带中文译文）→ OdeNet 例句 → 用用户在 `/settings/ai`
+  配置的 LLM 现场生成并缓存到 `ai_review_sentences`。都没有时跳过该卡，并在
+  本轮小结里说明；例句数据源不可达时降级为「单词 + 释义」卡。
+- `review_logs` 记录每次作答，用于单词页「最近复习」和概览里的今日已复习、
+  连续学习天数；「今天」按用户本地时区划分（offset 记在 `profiles`
+  与每条日志上）。
+
+## 词性与义项
+
+同一个拼写可能是多个词条。DWDS 对 `wollen` 同时返回形容词（羊毛）和动词
+（想要）两条 snippet，早先的实现固定取第一条，于是查 `willst` 会得到一个
+「形容词 wollen」的词条，释义、变格表和 WordNet 关联全都跟着错。
+
+- 归集时会用查询词形本身猜词性：大写开头按名词、`willst`/`ging` 这类由
+  不规则动词表判定为动词、`-st/-t/-en/...` 结尾按弱动词信号处理，然后优先
+  选 Wortart 匹配的那条 snippet；没有信号时才沿用 DWDS 顺序。
+- 英文词典的全部义项（含词性与 tags）写入 `lexemes.senses_json`。展示顺序为
+  「与词条词性一致的义项 → 不含 relational/archaic 等罕用标签的义项 →
+  Wiktionary 原始顺序」，单词页和复习卡都按这个顺序罗列**全部**义项，
+  不丢弃任何一条。
+- Wiktionary 用 "As a copulative verb:" 这类分组标题时，会用它的 `subsenses`
+  展开成真正的释义，标题本身不会作为义项出现。英文义项列表只取 Wiktionary：
+  OdeNet 的英文 `descriptionEn` 存在 ILI 错配，OdeNet 的内容只在德语释义块里
+  展示（这是它原生的部分）。
+- WordNet 关联在已知词性时不再退回「只看 lemma」的模糊匹配，避免把名词
+  synset 挂到动词词条上。
+- 存量词条可用回填脚本按当初查询的词形重新归集：
+
+```bash
+npm run db:backfill:lexemes -- --dry-run   # 只报告差异
+npm run db:backfill:lexemes                # 只处理多词性同形词
+npm run db:backfill:lexemes -- --all       # 全部词条
+```
+
 ## 导入 OdeNet
 
 下载 OdeNet v1.4 的 `deWordNet.xml`，然后执行：
@@ -95,6 +138,8 @@ npm run db:migrate
 - `ai_messages`
 - `lexeme_relations`
 - `tatoeba_cache`
+- `review_logs`
+- `ai_review_sentences`
 
 同时会创建 Supabase Auth 用户触发器与 RLS 策略。
 
@@ -164,7 +209,17 @@ npm run build:webpack
 ## 部署到 Vercel
 
 1. 在 Vercel 导入仓库。
-2. 配置 `.env.example` 中的所有环境变量。
+2. 在 Project → Settings → Environment Variables 里配置环境变量。构建阶段和运行阶段都会读取它们，所以下面这些在 Production / Preview / Development 都要填：
+
+   | 变量 | 用途 |
+   | --- | --- |
+   | `DATABASE_URL` | 运行时的连接池串（Supavisor 6543，带 `?pgbouncer=true`）。`next build` 收集路由信息时也会加载 Prisma Client，缺了会报 `DATABASE_URL is not configured` |
+   | `DIRECT_URL` | 迁移/内省用的直连串（5432），主要给 Prisma CLI 用 |
+   | `NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase 认证 |
+   | `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` | 让 Server Action 引用在各实例间保持一致 |
+   | `LLM_CONFIG_ENCRYPTION_KEY` | 加密用户自带的 LLM 配置 |
+
+   其余可选变量见 `.env.example`。
 3. `npm run build` 会自动执行 `prisma generate`，然后构建 Next.js。
 
-> Prisma 连接池建议：Vercel 运行时使用 `DATABASE_URL`（Supavisor 6543），Prisma CLI 迁移使用 `DIRECT_URL`（5432）。
+> `prisma generate` 本身不需要数据库连接串：`prisma.config.ts` 里 `datasource` 是可选的，缺少 `DIRECT_URL` 时会回退到 `DATABASE_URL`。但 `next build` 仍需要 `DATABASE_URL`。

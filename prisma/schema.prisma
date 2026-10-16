@@ -13,16 +13,24 @@ model Profile {
   uiLocale    String   @default("zh") @map("ui_locale")
   /// Whether the AI assistant sidebar is expanded, remembered per user.
   aiPanelOpen Boolean  @default(true) @map("ai_panel_open")
+  /// Review plan: cards per session, new words introduced per local day.
+  reviewSessionSize Int @default(20) @map("review_session_size")
+  reviewNewPerDay   Int @default(20) @map("review_new_per_day")
+  /// Last known UTC offset, using the JavaScript `Date#getTimezoneOffset()`
+  /// sign convention (UTC+8 is -480). Used to cut "today" into local days.
+  reviewTzOffsetMinutes Int @default(-480) @map("review_tz_offset_minutes")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  encounters  Encounter[]
-  userLexemes UserLexeme[]
-  wordNotes   UserWordNote[]
-  llmConfig   UserLlmConfig?
-  aiThreads   AiThread[]
-  aiMessages  AiMessage[]
-  articles    Article[]
+  encounters        Encounter[]
+  userLexemes       UserLexeme[]
+  wordNotes         UserWordNote[]
+  llmConfig         UserLlmConfig?
+  aiThreads         AiThread[]
+  aiMessages        AiMessage[]
+  articles          Article[]
+  reviewLogs        ReviewLog[]
+  aiReviewSentences AiReviewSentence[]
 
   @@map("profiles")
 }
@@ -37,6 +45,10 @@ model Lexeme {
   ipa                 String?
   dwdsUrl             String?   @map("dwds_url")
   definitionEn        String?   @map("definition_en")
+  /// Structured English senses (text, part of speech, tags, source order) from
+  /// every German entry the dictionary returned, so the UI can rank and list
+  /// them instead of trusting the order of a newline-joined string.
+  sensesJson          Json?     @map("senses_json")
   formsJson           Json?     @map("forms_json")
   dictionaryUrl       String?   @map("dictionary_url")
   dictionarySource    String?   @map("dictionary_source")
@@ -55,6 +67,8 @@ model Lexeme {
   aiThreads        AiThread[]
   relationsFrom    LexemeRelation[]        @relation("LexemeRelationSource")
   relationsTo      LexemeRelation[]        @relation("LexemeRelationTarget")
+  reviewLogs       ReviewLog[]
+  aiReviewSentences AiReviewSentence[]
 
   @@index([wordType])
   @@index([frequencyClass])
@@ -117,6 +131,57 @@ model UserWordNote {
   @@unique([userId, lexemeId])
   @@index([userId, updatedAt(sort: Desc)])
   @@map("user_word_notes")
+}
+
+/// One answered review card. Append-only: rows are never rewritten, which keeps
+/// the history usable as an audit trail and as the source of the daily stats.
+model ReviewLog {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  lexemeId          String    @map("lexeme_id") @db.Uuid
+  /// Client-generated id for the whole session, so logs can be grouped.
+  sessionId         String    @map("session_id") @db.Uuid
+  /// Client-generated id for one presentation of a card. The unique constraint
+  /// below makes a retried submit a no-op instead of a second answer.
+  clientCardId      String    @map("client_card_id") @db.Uuid
+  /// FORGOT or KNOWN.
+  rating            String
+  boxBefore         Int       @map("box_before")
+  boxAfter          Int       @map("box_after")
+  intervalDaysAfter Int       @map("interval_days_after")
+  /// Null once the card reached MASTERED and left the queue.
+  dueAtAfter        DateTime? @map("due_at_after") @db.Timestamptz(6)
+  elapsedMs         Int?      @map("elapsed_ms")
+  tzOffsetMinutes   Int       @map("tz_offset_minutes")
+  reviewedAt        DateTime  @default(now()) @map("reviewed_at") @db.Timestamptz(6)
+
+  profile Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lexeme  Lexeme  @relation(fields: [lexemeId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, clientCardId])
+  @@index([userId, reviewedAt(sort: Desc)])
+  @@index([userId, lexemeId, reviewedAt(sort: Desc)])
+  @@map("review_logs")
+}
+
+/// A sentence the user's own LLM generated because nothing in the dictionary
+/// sources contained the word. Cached per user and lexeme, and regenerated when
+/// the LLM configuration changes.
+model AiReviewSentence {
+  userId        String   @map("user_id") @db.Uuid
+  lexemeId      String   @map("lexeme_id") @db.Uuid
+  sentence      String
+  translation   String
+  highlightForm String   @map("highlight_form")
+  configHash    String   @map("config_hash")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  profile Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lexeme  Lexeme  @relation(fields: [lexemeId], references: [id], onDelete: Cascade)
+
+  @@id([userId, lexemeId])
+  @@map("ai_review_sentences")
 }
 
 /// A pasted article the user annotates on /reader. There is no separate title

@@ -12,7 +12,13 @@ import {
 
 const FREE_DICTIONARY_BASE_URL = "https://freedictionaryapi.com/api/v1";
 const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-const CACHE_ENDPOINT = "freedictionary";
+/**
+ * The parsed payload gained structured senses and a part-of-speech aware entry
+ * choice, so the old cache rows must not be reused. Bumping the endpoint retires
+ * them without a data migration. `v3` also flattens Wiktionary's grouped label
+ * senses down to their subsenses.
+ */
+const CACHE_ENDPOINT = "freedictionary:v3";
 
 export type { EnglishDictionaryResult };
 

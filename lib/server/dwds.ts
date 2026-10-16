@@ -1,6 +1,7 @@
 import "server-only";
 
 import { fetchJson, fetchText } from "@/lib/server/http";
+import { chooseSnippetEntry } from "@/lib/word-pos";
 
 const DWDS_BASE_URL =
   process.env.DWDS_BASE_URL ?? "https://www.dwds.de/api";
@@ -107,25 +108,32 @@ export function parseFrequency(raw: unknown): FrequencyResponse {
 }
 
 export function parseSnippet(raw: unknown): SnippetEntry {
+  return parseSnippetEntries(raw)[0] ?? {};
+}
+
+/**
+ * Every reading DWDS returned for the query. A lemma such as "wollen" comes
+ * back as one snippet per Wortart (adjective *and* verb), which is why the
+ * caller must choose instead of always taking the first one.
+ */
+export function parseSnippetEntries(raw: unknown): SnippetEntry[] {
   if (!Array.isArray(raw)) {
-    return {};
+    return [];
   }
 
-  const first = raw[0];
-  if (!first || typeof first !== "object") {
-    return {};
-  }
-
-  const entry = first as SnippetEntry;
-  return {
-    input: typeof entry.input === "string" ? entry.input : undefined,
-    wortart: typeof entry.wortart === "string" ? entry.wortart : null,
-    lemma:
-      typeof entry.lemma === "string"
-        ? sanitizeLemma(entry.lemma) ?? undefined
-        : undefined,
-    url: typeof entry.url === "string" ? entry.url : undefined,
-  };
+  return raw
+    .filter((entry): entry is SnippetEntry =>
+      Boolean(entry) && typeof entry === "object",
+    )
+    .map((entry) => ({
+      input: typeof entry.input === "string" ? entry.input : undefined,
+      wortart: typeof entry.wortart === "string" ? entry.wortart : null,
+      lemma:
+        typeof entry.lemma === "string"
+          ? sanitizeLemma(entry.lemma) ?? undefined
+          : undefined,
+      url: typeof entry.url === "string" ? entry.url : undefined,
+    }));
 }
 
 export function parseIpa(raw: unknown): string | null {
@@ -217,9 +225,16 @@ async function lookupDwdsOnce(query: string): Promise<DwdsLookup> {
   let snippetResult = await safeJson<unknown>(
     dwdsUrl("snippet", initialLemma),
   );
-  let snippet: SnippetEntry = snippetResult.ok
-    ? parseSnippet(snippetResult.data)
-    : {};
+  let snippetEntries: SnippetEntry[] = snippetResult.ok
+    ? parseSnippetEntries(snippetResult.data)
+    : [];
+  /**
+   * DWDS lists one snippet per Wortart in its own order, so the queried form
+   * decides which reading this entry is: "willst" is a verb form of "wollen",
+   * never the adjective about wool.
+   */
+  let snippet: SnippetEntry =
+    chooseSnippetEntry(snippetEntries, surface) ?? {};
 
   if (!snippet.lemma && !snippet.url && initialLemma !== surface) {
     const fallbackSnippet = await safeJson<unknown>(
@@ -228,7 +243,8 @@ async function lookupDwdsOnce(query: string): Promise<DwdsLookup> {
 
     if (fallbackSnippet.ok) {
       snippetResult = fallbackSnippet;
-      snippet = parseSnippet(fallbackSnippet.data);
+      snippetEntries = parseSnippetEntries(fallbackSnippet.data);
+      snippet = chooseSnippetEntry(snippetEntries, surface) ?? {};
     }
   }
 

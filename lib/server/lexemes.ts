@@ -25,6 +25,9 @@ import {
   WORD_BOOK_PAGE_SIZE,
   type WordBookSort,
 } from "@/lib/wordbook/sort";
+import { getRecentReviews } from "@/lib/server/review";
+import type { RecentReview } from "@/lib/review/types";
+import { primarySenseText, readLexemeSenses } from "@/lib/word-senses";
 import { wordfeatherPhrasePos } from "@/lib/reader/phrases";
 import { supplementalPhrase } from "@/lib/reader/phrase-supplement";
 
@@ -72,6 +75,8 @@ export type UserWordDetail = {
   repetitions: number;
   lapses: number;
   lastReviewedAt: Date | null;
+  /** Newest answers first, for the "学习记录" card on the entry page. */
+  recentReviews: RecentReview[];
   noteContent: string;
   noteUpdatedAt: Date | null;
   wordnet: WordnetContent | null;
@@ -85,7 +90,11 @@ export type UserWordDetail = {
 };
 
 const LOOKUP_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const DWDS_LOOKUP_CACHE_KEY = "lookup";
+/**
+ * Bumped when the snippet/POS selection changed: cached lookups made with the
+ * old rule ("willst" resolved to the adjective "wollen") must not be reused.
+ */
+const DWDS_LOOKUP_CACHE_KEY = "lookup:v2";
 
 function isNounWordType(wordType: string | null | undefined): boolean {
   return (
@@ -185,6 +194,7 @@ export async function findOrCreateLexeme(query: string): Promise<LexemeModel> {
   const dictionaryFields = dictionary
     ? {
         definitionEn: dictionary.definitionEn,
+        sensesJson: dictionary.senses as unknown as Prisma.InputJsonValue,
         dictionaryUrl: dictionary.dictionaryUrl,
         dictionarySource: dictionary.dictionarySource,
         dictionaryLicense: dictionary.dictionaryLicense,
@@ -236,6 +246,183 @@ export async function findOrCreateLexeme(query: string): Promise<LexemeModel> {
   });
 
   return lexeme;
+}
+
+export type LexemeEntryRefresh = {
+  lexemeId: string;
+  lemma: string;
+  surface: string;
+  before: {
+    wordType: string | null;
+    dwdsUrl: string | null;
+    definitionEn: string | null;
+    senseCount: number;
+  };
+  after: {
+    wordType: string | null;
+    dwdsUrl: string | null;
+    definitionEn: string | null;
+    senseCount: number;
+  };
+  changed: boolean;
+  /** Set when the surface form now resolves to a different lemma. */
+  skipped?: "lemma_changed" | "not_found";
+};
+
+function readSourceSurface(sourceJson: unknown): string | null {
+  if (!sourceJson || typeof sourceJson !== "object" || Array.isArray(sourceJson)) {
+    return null;
+  }
+
+  const surface = (sourceJson as { surface?: unknown }).surface;
+
+  return typeof surface === "string" && surface.trim() ? surface.trim() : null;
+}
+
+/**
+ * Re-resolves one lexeme from DWDS and the English dictionary using the surface
+ * form the user actually looked up, then re-links WordNet and the vocabulary
+ * levels to the corrected part of speech.
+ *
+ * This is the repair path for entries stored before the snippet selection knew
+ * about morphology — "willst" used to be filed as the adjective "wollen".
+ */
+export async function refreshLexemeEntry(input: {
+  lexemeId: string;
+  dryRun?: boolean;
+}): Promise<LexemeEntryRefresh | null> {
+  const lexeme = await prisma.lexeme.findUnique({
+    where: { id: input.lexemeId },
+    select: {
+      id: true,
+      canonicalLemma: true,
+      normalizedLemma: true,
+      wordType: true,
+      dwdsUrl: true,
+      definitionEn: true,
+      sensesJson: true,
+      sourceJson: true,
+    },
+  });
+
+  if (!lexeme) {
+    return null;
+  }
+
+  const surface =
+    readSourceSurface(lexeme.sourceJson) ?? lexeme.canonicalLemma;
+  const lookup = await lookupDwdsCached(surface);
+
+  if (normalizeLexeme(lookup.canonicalLemma) !== lexeme.normalizedLemma) {
+    return {
+      lexemeId: lexeme.id,
+      lemma: lexeme.canonicalLemma,
+      surface,
+      before: {
+        wordType: lexeme.wordType,
+        dwdsUrl: lexeme.dwdsUrl,
+        definitionEn: lexeme.definitionEn,
+        senseCount: readLexemeSenses(lexeme.sensesJson).length,
+      },
+      after: {
+        wordType: lexeme.wordType,
+        dwdsUrl: lexeme.dwdsUrl,
+        definitionEn: lexeme.definitionEn,
+        senseCount: readLexemeSenses(lexeme.sensesJson).length,
+      },
+      changed: false,
+      skipped: "lemma_changed",
+    };
+  }
+
+  const dictionary = await getEnglishDictionaryEntry(
+    lookup.canonicalLemma,
+    lookup.wordType,
+  ).catch((error) => {
+    console.error("FreeDictionaryAPI refresh failed", {
+      lemma: lookup.canonicalLemma,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  });
+  const senses = dictionary?.senses ?? [];
+  const before = {
+    wordType: lexeme.wordType,
+    dwdsUrl: lexeme.dwdsUrl,
+    definitionEn: lexeme.definitionEn,
+    senseCount: readLexemeSenses(lexeme.sensesJson).length,
+  };
+  const after = {
+    wordType: lookup.wordType,
+    dwdsUrl: lookup.dwdsUrl,
+    definitionEn: dictionary?.definitionEn ?? null,
+    senseCount: senses.length,
+  };
+  const changed =
+    before.wordType !== after.wordType ||
+    before.dwdsUrl !== after.dwdsUrl ||
+    before.definitionEn !== after.definitionEn ||
+    before.senseCount !== after.senseCount;
+
+  if (input.dryRun || !changed) {
+    return {
+      lexemeId: lexeme.id,
+      lemma: lexeme.canonicalLemma,
+      surface,
+      before,
+      after,
+      changed,
+    };
+  }
+
+  await prisma.lexeme.update({
+    where: { id: lexeme.id },
+    data: {
+      wordType: lookup.wordType,
+      gender: lookup.gender,
+      frequencyClass: lookup.frequencyClass,
+      ipa: lookup.ipa,
+      dwdsUrl: lookup.dwdsUrl,
+      sourceJson: lookup.sourceJson as unknown as Prisma.InputJsonValue,
+      sourceFetchedAt: new Date(),
+      ...(dictionary
+        ? {
+            definitionEn: dictionary.definitionEn,
+            sensesJson: senses as unknown as Prisma.InputJsonValue,
+            dictionaryUrl: dictionary.dictionaryUrl,
+            dictionarySource: dictionary.dictionarySource,
+            dictionaryLicense: dictionary.dictionaryLicense,
+            dictionaryFetchedAt: new Date(),
+            ...(dictionary.formsJson
+              ? {
+                  formsJson:
+                    dictionary.formsJson as unknown as Prisma.InputJsonValue,
+                }
+              : {}),
+          }
+        : {}),
+    },
+  });
+
+  await syncLexemeToWordnet({
+    id: lexeme.id,
+    normalizedLemma: lexeme.normalizedLemma,
+    wordType: lookup.wordType,
+  });
+  await syncLexemeVocabularyLevels({
+    id: lexeme.id,
+    normalizedLemma: lexeme.normalizedLemma,
+    wordType: lookup.wordType,
+  });
+
+  return {
+    lexemeId: lexeme.id,
+    lemma: lexeme.canonicalLemma,
+    surface,
+    before,
+    after,
+    changed,
+  };
 }
 
 /** DWDS-style word type so the existing WordNet/vocabulary helpers keep working. */
@@ -573,7 +760,11 @@ export async function getWordBookWords(
     ipa: row.lexeme.ipa,
     isFavorite: row.isFavorite,
     level: sortVocabularyLevels(row.lexeme.vocabularyLevels)[0]?.level ?? null,
-    definitionEn: row.lexeme.definitionEn?.split("\n")[0]?.trim() ?? null,
+    definitionEn: primarySenseText(
+      readLexemeSenses(row.lexeme.sensesJson),
+      row.lexeme.wordType,
+      row.lexeme.definitionEn,
+    ),
     gloss: readPhraseGloss(row.lexeme.sourceJson),
     surfaceForms: Array.from(
       new Set(row.lexeme.encounters.map((encounter) => encounter.surfaceForm)),
@@ -689,7 +880,7 @@ export async function getUserWordDetail(
    * A form entry ("ist") carries no dictionary content of its own, so the entry
    * it belongs to ("sein") supplies definitions, examples and relations.
    */
-  const [wordnet, base] = await Promise.all([
+  const [wordnet, base, recentReviews] = await Promise.all([
     getWordnetContentForLexeme(
       baseLexeme
         ? {
@@ -709,6 +900,7 @@ export async function getUserWordDetail(
           select: { definitionEn: true },
         })
       : Promise.resolve(null),
+    getRecentReviews(userId, lexemeId),
   ]);
 
   return {
@@ -731,6 +923,7 @@ export async function getUserWordDetail(
     repetitions: userLexeme?.repetitions ?? 0,
     lapses: userLexeme?.lapses ?? 0,
     lastReviewedAt: userLexeme?.lastReviewedAt ?? null,
+    recentReviews,
     noteContent: note?.content ?? "",
     noteUpdatedAt: note?.updatedAt ?? null,
     wordnet,

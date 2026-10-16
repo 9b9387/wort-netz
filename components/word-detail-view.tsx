@@ -124,7 +124,8 @@ function WordHeroSection({
       plural={data.forms?.plural ?? null}
       isFavorite={detail.isFavorite}
       germanDefinitions={data.germanDefinitions}
-      englishDefinitions={data.englishDefinitions}
+      englishSenses={data.englishSenses}
+      t={t}
       definitionLabel={t.definitionDe}
       englishGlossLabels={{
         title: t.englishGlossTitle,
@@ -347,6 +348,48 @@ function LogSection({
                       ×{item.count}
                     </span>
                   </Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            {t.reviewLogTitle}
+          </span>
+          {detail.recentReviews.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t.reviewLogEmpty}</p>
+          ) : (
+            <ul className="flex flex-col gap-2 text-sm">
+              {detail.recentReviews.map((review) => (
+                <li
+                  key={review.id}
+                  className="flex flex-wrap items-center gap-2"
+                >
+                  <Badge
+                    variant={
+                      review.rating === "KNOWN" ? "secondary" : "outline"
+                    }
+                  >
+                    {review.rating === "KNOWN"
+                      ? t.reviewLogKnown
+                      : t.reviewLogForgot}
+                  </Badge>
+                  <span className="font-code text-xs text-muted-foreground">
+                    {t.leitnerBox} {review.boxBefore} → {review.boxAfter}
+                  </span>
+                  {review.intervalDaysAfter > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      {t.reviewLogInterval.replace(
+                        "{days}",
+                        String(review.intervalDaysAfter),
+                      )}
+                    </span>
+                  )}
+                  <span className="text-xs text-muted-foreground">
+                    {dateFormatter.format(new Date(review.reviewedAt))}
+                  </span>
                 </li>
               ))}
             </ul>

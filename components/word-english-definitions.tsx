@@ -5,6 +5,12 @@ import { LanguagesIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useTranslatorController } from "@/hooks/use-translator";
+import type { Translation } from "@/lib/i18n";
+import {
+  sensePosLabel,
+  type EnglishDefinitionItem,
+} from "@/lib/word-senses";
+import { Badge } from "@/components/ui/badge";
 
 export type EnglishGlossLabels = {
   title: string;
@@ -26,9 +32,11 @@ const ENGLISH_SOURCE_LANGUAGE = "en";
 export function EnglishDefinitions({
   items,
   labels,
+  t,
 }: {
-  items: readonly string[];
+  items: readonly EnglishDefinitionItem[];
   labels: EnglishGlossLabels;
+  t: Translation;
 }) {
   const { status, progress, translate, enable, revision } =
     useTranslatorController(ENGLISH_SOURCE_LANGUAGE);
@@ -43,9 +51,9 @@ export function EnglishDefinitions({
 
     void Promise.all(
       items.map(async (item) => {
-        const value = await translate(item);
+        const value = await translate(item.text);
 
-        return value ? ([item, value] as const) : null;
+        return value ? ([item.text, value] as const) : null;
       }),
     ).then((pairs) => {
       if (cancelled) {
@@ -131,7 +139,7 @@ export function EnglishDefinitions({
       <ul className="flex flex-col gap-3">
         {items.map((item, index) => (
           <li
-            key={item}
+            key={item.text}
             className={
               index > 0 ? "border-t border-sage-border/60 pt-3" : undefined
             }
@@ -147,14 +155,26 @@ export function EnglishDefinitions({
                   lang="en"
                   className="font-display text-lg leading-7 text-foreground"
                 >
-                  {item}
+                  {item.text}
                 </p>
-                {translations[item] && (
+                <span className="flex flex-wrap items-center gap-1.5">
+                  {sensePosLabel(t, item.partOfSpeech) && (
+                    <Badge variant="outline">
+                      {sensePosLabel(t, item.partOfSpeech)}
+                    </Badge>
+                  )}
+                  {item.rare && (
+                    <span className="text-xs text-muted-foreground">
+                      {t.senseRare}
+                    </span>
+                  )}
+                </span>
+                {translations[item.text] && (
                   <p
                     data-slot="translated-text"
                     className="text-sm leading-6 text-ink-secondary"
                   >
-                    {translations[item]}
+                    {translations[item.text]}
                   </p>
                 )}
               </div>

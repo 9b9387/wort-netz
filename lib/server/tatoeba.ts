@@ -212,27 +212,36 @@ async function writeCache(
   }
 }
 
+export type TatoebaSentenceResult = {
+  sentences: TatoebaSentence[];
+  /**
+   * True when the API could not be reached. The review module uses this to tell
+   * "this word has no example" (skip the card) apart from "the source is down"
+   * (fall back to a context-free card instead of skipping everything).
+   */
+  failed: boolean;
+};
+
 /**
  * Example sentences for a lemma, served from the `tatoeba_cache` table when a
- * fresh payload exists. Network failures degrade to an empty list so the word
- * page keeps rendering with the other sources.
+ * fresh payload exists, plus whether the network lookup actually succeeded.
  */
-export async function getTatoebaSentences(input: {
+export async function loadTatoebaSentences(input: {
   lemma: string;
   forms?: readonly string[];
   limit?: number;
-}): Promise<TatoebaSentence[]> {
+}): Promise<TatoebaSentenceResult> {
   const query = normalizeLexeme(input.lemma);
   const limit = input.limit ?? CACHED_LIMIT;
 
   if (!query) {
-    return [];
+    return { sentences: [], failed: false };
   }
 
   const cached = await readCache(query);
 
   if (cached?.fresh) {
-    return cached.sentences.slice(0, limit);
+    return { sentences: cached.sentences.slice(0, limit), failed: false };
   }
 
   try {
@@ -257,10 +266,27 @@ export async function getTatoebaSentences(input: {
 
     await writeCache(query, sentences);
 
-    return sentences.slice(0, limit);
+    return { sentences: sentences.slice(0, limit), failed: false };
   } catch (error) {
     logFailure(`Tatoeba lookup failed for "${input.lemma}"`, error);
 
-    return cached?.sentences.slice(0, limit) ?? [];
+    return {
+      sentences: cached?.sentences.slice(0, limit) ?? [],
+      failed: true,
+    };
   }
+}
+
+/**
+ * Example sentences for a lemma. Network failures degrade to an empty list so
+ * the word page keeps rendering with the other sources.
+ */
+export async function getTatoebaSentences(input: {
+  lemma: string;
+  forms?: readonly string[];
+  limit?: number;
+}): Promise<TatoebaSentence[]> {
+  const { sentences } = await loadTatoebaSentences(input);
+
+  return sentences;
 }

@@ -5,6 +5,11 @@
 
 import type { UserWordDetail } from "@/lib/server/lexemes";
 import {
+  buildEnglishDefinitions,
+  readLexemeSenses,
+  type EnglishDefinitionItem,
+} from "@/lib/word-senses";
+import {
   normalizeForms,
   resolveDefinitionSets,
   type WordFormEntry,
@@ -12,7 +17,9 @@ import {
 } from "@/lib/word-display";
 
 export const RELATED_WORDS_LIMIT = 6;
-export const LEITNER_BOX_MAX = 5;
+
+/** Single source of truth lives with the scheduler; re-exported for the views. */
+export { LEITNER_BOX_MAX } from "@/lib/review/schedule";
 
 export type ParsedForms = {
   genitive: string | null;
@@ -42,8 +49,8 @@ export type WordDetailViewData = {
   normalizedForms: WordFormEntry[];
   /** German senses from OdeNet; the German card is hidden when empty. */
   germanDefinitions: string[];
-  /** English senses (dictionary + OdeNet), shown above the German ones. */
-  englishDefinitions: string[];
+  /** English senses (dictionary + OdeNet) with part of speech and source. */
+  englishSenses: EnglishDefinitionItem[];
   relationGroups: RelationGroup[];
   relatedWords: Array<{ lemma: string; lexemeId: string }>;
   surfaceFormCounts: SurfaceFormCount[];
@@ -107,17 +114,17 @@ export function buildWordDetailData(
   detail: UserWordDetail,
 ): WordDetailViewData {
   const forms = parseFormsJson(detail.lexeme.formsJson);
+  const englishSenses = buildEnglishDefinitions({
+    senses: readLexemeSenses(detail.lexeme.sensesJson),
+    wordType: detail.lexeme.wordType,
+    definitionEn: detail.lexeme.definitionEn,
+  });
   const definitions = resolveDefinitionSets({
     german:
       detail.wordnet?.definitions
         .filter((definition) => definition.language === "de")
         .map((definition) => definition.text) ?? [],
-    english: [
-      ...(detail.lexeme.definitionEn?.split("\n") ?? []),
-      ...(detail.wordnet?.definitions
-        .filter((definition) => definition.language === "en")
-        .map((definition) => definition.text) ?? []),
-    ],
+    english: [],
   });
   const relationGroups = (
     [
@@ -151,7 +158,7 @@ export function buildWordDetailData(
     forms,
     normalizedForms: forms ? normalizeForms(forms.forms) : [],
     germanDefinitions: definitions.german,
-    englishDefinitions: definitions.english,
+    englishSenses,
     relationGroups,
     relatedWords,
     surfaceFormCounts: countSurfaceForms(detail.surfaceForms),
