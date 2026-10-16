@@ -9,6 +9,24 @@ import {
   type DwdsLookup,
 } from "@/lib/server/dwds";
 import { getEnglishDictionaryEntry } from "@/lib/server/freedictionary";
+import {
+  hasWordnetEntry,
+  syncLexemeToWordnet,
+  getWordnetContentForLexeme,
+  type WordnetContent,
+} from "@/lib/server/wordnet";
+import {
+  getVocabularyLevelsForLexeme,
+  syncLexemeVocabularyLevels,
+  type VocabularyLevelInfo,
+} from "@/lib/server/vocabulary-levels";
+
+export class LexemeNotFoundError extends Error {
+  constructor(query: string) {
+    super(`Lexeme not found: ${query}`);
+    this.name = "LexemeNotFoundError";
+  }
+}
 
 export type RecentWord = {
   lexemeId: string;
@@ -25,6 +43,19 @@ export type UserWordDetail = {
   encounterCount: number;
   firstSeenAt: Date;
   lastSeenAt: Date;
+  isFavorite: boolean;
+  reviewStatus: string;
+  leitnerBox: number;
+  dueAt: Date | null;
+  intervalDays: number;
+  easeFactor: number;
+  repetitions: number;
+  lapses: number;
+  lastReviewedAt: Date | null;
+  noteContent: string;
+  noteUpdatedAt: Date | null;
+  wordnet: WordnetContent | null;
+  vocabularyLevels: VocabularyLevelInfo[];
   surfaceForms: Array<{
     surfaceForm: string;
     createdAt: Date;
@@ -33,6 +64,14 @@ export type UserWordDetail = {
 
 const LOOKUP_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const DWDS_LOOKUP_CACHE_KEY = "lookup";
+
+function isNounWordType(wordType: string | null | undefined): boolean {
+  return (
+    wordType === "Substantiv" ||
+    wordType === "Eigenname" ||
+    wordType?.includes("Substantiv") === true
+  );
+}
 
 async function lookupDwdsCached(query: string): Promise<DwdsLookup> {
   const normalizedQuery = normalizeLexeme(query);
@@ -49,7 +88,14 @@ async function lookupDwdsCached(query: string): Promise<DwdsLookup> {
     cached &&
     cached.fetchedAt.getTime() > Date.now() - LOOKUP_CACHE_TTL_MS
   ) {
-    return cached.payload as unknown as DwdsLookup;
+    const payload = cached.payload as unknown as DwdsLookup;
+    const cachedGender = (cached.payload as { gender?: unknown }).gender;
+    const needsGender =
+      isNounWordType(payload.wordType) && cachedGender === undefined;
+
+    if (!needsGender) {
+      return payload;
+    }
   }
 
   const lookup = await lookupDwds(query);
@@ -89,6 +135,15 @@ export async function findOrCreateLexeme(query: string): Promise<LexemeModel> {
     });
     return null;
   });
+  const hasOdeNetEntry = await hasWordnetEntry(normalizedLemma);
+  const hasDictionaryContent =
+    Boolean(dictionary?.definitionEn) ||
+    (dictionary?.formsJson?.forms.length ?? 0) > 0;
+
+  if (!lookup.found && !hasDictionaryContent && !hasOdeNetEntry) {
+    throw new LexemeNotFoundError(query);
+  }
+
   const dictionaryFields = dictionary
     ? {
         definitionEn: dictionary.definitionEn,
@@ -104,11 +159,12 @@ export async function findOrCreateLexeme(query: string): Promise<LexemeModel> {
       }
     : {};
 
-  return prisma.lexeme.upsert({
+  const lexeme = await prisma.lexeme.upsert({
     where: { normalizedLemma },
     update: {
       canonicalLemma: lookup.canonicalLemma,
       wordType: lookup.wordType,
+      gender: lookup.gender,
       frequencyClass: lookup.frequencyClass,
       ipa: lookup.ipa,
       dwdsUrl: lookup.dwdsUrl,
@@ -120,6 +176,7 @@ export async function findOrCreateLexeme(query: string): Promise<LexemeModel> {
       normalizedLemma,
       canonicalLemma: lookup.canonicalLemma,
       wordType: lookup.wordType,
+      gender: lookup.gender,
       frequencyClass: lookup.frequencyClass,
       ipa: lookup.ipa,
       dwdsUrl: lookup.dwdsUrl,
@@ -128,6 +185,19 @@ export async function findOrCreateLexeme(query: string): Promise<LexemeModel> {
       ...dictionaryFields,
     },
   });
+
+  await syncLexemeToWordnet({
+    id: lexeme.id,
+    normalizedLemma: lexeme.normalizedLemma,
+    wordType: lexeme.wordType,
+  });
+  await syncLexemeVocabularyLevels({
+    id: lexeme.id,
+    normalizedLemma: lexeme.normalizedLemma,
+    wordType: lexeme.wordType,
+  });
+
+  return lexeme;
 }
 
 export async function recordEncounter(
@@ -212,11 +282,37 @@ export async function getRecentUserWords(
   }));
 }
 
+async function ensureLexemeGender(lexeme: LexemeModel): Promise<LexemeModel> {
+  if (lexeme.gender || !isNounWordType(lexeme.wordType)) {
+    return lexeme;
+  }
+
+  try {
+    const lookup = await lookupDwdsCached(lexeme.canonicalLemma);
+
+    if (!lookup.gender) {
+      return lexeme;
+    }
+
+    return await prisma.lexeme.update({
+      where: { id: lexeme.id },
+      data: { gender: lookup.gender },
+    });
+  } catch (error) {
+    console.error("Lexeme gender backfill failed", {
+      lexemeId: lexeme.id,
+      lemma: lexeme.canonicalLemma,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return lexeme;
+  }
+}
+
 export async function getUserWordDetail(
   userId: string,
   lexemeId: string,
 ): Promise<UserWordDetail | null> {
-  const [lexeme, userLexeme, encounters] = await Promise.all([
+  const [lexeme, userLexeme, encounters, note] = await Promise.all([
     prisma.lexeme.findUnique({ where: { id: lexemeId } }),
     prisma.userLexeme.findUnique({
       where: {
@@ -235,17 +331,52 @@ export async function getUserWordDetail(
         createdAt: true,
       },
     }),
+    prisma.userWordNote.findUnique({
+      where: {
+        userId_lexemeId: {
+          userId,
+          lexemeId,
+        },
+      },
+      select: {
+        content: true,
+        updatedAt: true,
+      },
+    }),
   ]);
 
   if (!lexeme) {
     return null;
   }
 
+  const lexemeWithGender = await ensureLexemeGender(lexeme);
+  const wordnet = await getWordnetContentForLexeme({
+    id: lexemeWithGender.id,
+    canonicalLemma: lexemeWithGender.canonicalLemma,
+    normalizedLemma: lexemeWithGender.normalizedLemma,
+  });
+  const vocabularyLevels = await getVocabularyLevelsForLexeme(
+    lexemeWithGender.id,
+  );
+
   return {
-    lexeme,
+    lexeme: lexemeWithGender,
     encounterCount: userLexeme?.encounterCount ?? 0,
     firstSeenAt: userLexeme?.firstSeenAt ?? lexeme.createdAt,
     lastSeenAt: userLexeme?.lastSeenAt ?? lexeme.createdAt,
+    isFavorite: userLexeme?.isFavorite ?? false,
+    reviewStatus: userLexeme?.status ?? "NEW",
+    leitnerBox: userLexeme?.leitnerBox ?? 0,
+    dueAt: userLexeme?.dueAt ?? null,
+    intervalDays: userLexeme?.intervalDays ?? 0,
+    easeFactor: userLexeme?.easeFactor ?? 2.5,
+    repetitions: userLexeme?.repetitions ?? 0,
+    lapses: userLexeme?.lapses ?? 0,
+    lastReviewedAt: userLexeme?.lastReviewedAt ?? null,
+    noteContent: note?.content ?? "",
+    noteUpdatedAt: note?.updatedAt ?? null,
+    wordnet,
+    vocabularyLevels,
     surfaceForms: encounters,
   };
 }

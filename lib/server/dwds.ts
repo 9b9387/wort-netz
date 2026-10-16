@@ -1,6 +1,6 @@
 import "server-only";
 
-import { fetchJson } from "@/lib/server/http";
+import { fetchJson, fetchText } from "@/lib/server/http";
 
 const DWDS_BASE_URL =
   process.env.DWDS_BASE_URL ?? "https://www.dwds.de/api";
@@ -30,12 +30,16 @@ type IpaEntry = {
 export type DwdsLookup = {
   canonicalLemma: string;
   wordType: string | null;
+  gender: GrammaticalGender | null;
   frequencyClass: number | null;
+  frequencyHits: number | null;
   ipa: string | null;
   dwdsUrl: string | null;
   found: boolean;
   sourceJson: Record<string, unknown>;
 };
+
+export type GrammaticalGender = "masculine" | "feminine" | "neuter";
 
 export class DictionaryUnavailableError extends Error {
   constructor(message = "DWDS lookup unavailable") {
@@ -144,6 +148,49 @@ export function parseIpa(raw: unknown): string | null {
   return proved?.ipa ?? entries[0]?.ipa ?? null;
 }
 
+export function parseGenderFromDwdsHtml(html: string): GrammaticalGender | null {
+  const match = html.match(
+    /<meta[^>]+property="og:image:alt"[^>]+content="([^"]+)"/i,
+  );
+
+  if (!match?.[1]) {
+    return null;
+  }
+
+  const metadata = match[1].toLowerCase();
+
+  if (metadata.includes("maskulinum") || /\bder:/.test(metadata)) {
+    return "masculine";
+  }
+
+  if (metadata.includes("femininum") || /\bdie:/.test(metadata)) {
+    return "feminine";
+  }
+
+  if (metadata.includes("neutrum") || /\bdas:/.test(metadata)) {
+    return "neuter";
+  }
+
+  return null;
+}
+
+async function lookupDwdsGender(
+  lemma: string,
+): Promise<GrammaticalGender | null> {
+  try {
+    const html = await fetchText(
+      `https://www.dwds.de/wb/${encodeURIComponent(lemma)}`,
+    );
+    return parseGenderFromDwdsHtml(html);
+  } catch (error) {
+    console.error("DWDS gender lookup failed", {
+      lemma,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
+
 async function safeJson<T>(
   url: string,
 ): Promise<{ ok: true; data: T } | { ok: false; error: unknown }> {
@@ -199,13 +246,20 @@ async function lookupDwdsOnce(query: string): Promise<DwdsLookup> {
     sanitizeLemma(snippet.lemma) ?? frequencyLemma ?? surface;
   const wordType = snippet.wortart ?? null;
   const entryUrl = snippet.url ?? null;
+  const gender = isNounWordType(wordType)
+    ? await lookupDwdsGender(canonicalLemma)
+    : null;
+  const frequencyHits =
+    typeof frequency.hits === "number" ? frequency.hits : null;
   const found = wordType !== null || entryUrl !== null;
 
   return {
     canonicalLemma,
     wordType,
+    gender,
     frequencyClass:
       typeof frequency.frequency === "number" ? frequency.frequency : null,
+    frequencyHits,
     ipa,
     dwdsUrl: entryUrl,
     found,
@@ -215,6 +269,7 @@ async function lookupDwdsOnce(query: string): Promise<DwdsLookup> {
       frequency: frequencyResult.ok ? frequencyResult.data : null,
       snippet: snippetResult.ok ? snippetResult.data : null,
       ipa: ipaResult.ok ? ipaResult.data : null,
+      gender,
     },
   };
 }

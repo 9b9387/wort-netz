@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/server/auth";
 import {
   findOrCreateLexeme,
+  LexemeNotFoundError,
   recordEncounter,
 } from "@/lib/server/lexemes";
 import { DictionaryUnavailableError } from "@/lib/server/dwds";
@@ -37,6 +38,10 @@ export async function captureWord(
     await recordEncounter(user.id, lexeme.id, rawQuery);
     lexemeId = lexeme.id;
   } catch (error) {
+    if (error instanceof LexemeNotFoundError) {
+      return { message: t.notFound };
+    }
+
     if (error instanceof DictionaryUnavailableError) {
       return { message: t.serviceUnavailable };
     }

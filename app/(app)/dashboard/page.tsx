@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -41,7 +40,6 @@ export default function DashboardPage() {
       <Card className="mt-6">
         <CardHeader>
           <CardTitle>{t.search}</CardTitle>
-          <CardDescription>{t.searchPlaceholder}</CardDescription>
         </CardHeader>
         <CardContent>
           <SearchForm

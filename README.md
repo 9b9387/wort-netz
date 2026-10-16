@@ -9,13 +9,39 @@
 - Prisma ORM 7 + Supabase PostgreSQL
 - DWDS 公开 API：词元、词性、频率、IPA
 - FreeDictionaryAPI.com：英文释义与词形变化（English Wiktionary，CC BY-SA 4.0）
+- OdeNet 1.4：德语定义、同义词、反义词、上下位词和词义关系（CC BY-SA 4.0）
+- wordfeather：A1–C2 词汇分级（CC BY-NC 4.0，社区整理数据）
 
 ## 数据源职责
 
 - DWDS：`frequency`、`wb/snippet`、`ipa`
 - FreeDictionaryAPI.com：`/api/v1/entries/de/<word>`
+- OdeNet：离线导入 `deWordNet.xml`，不依赖运行时 API
 - 外部响应缓存在 `dwds_cache` 表中，避免重复请求
 - 小写输入如果是较弱的动词形式，会尝试首字母大写后的名词词条，例如 `lampe → Lampe`
+
+## 导入 OdeNet
+
+下载 OdeNet v1.4 的 `deWordNet.xml`，然后执行：
+
+```bash
+ODENET_XML_PATH=/path/to/deWordNet.xml npm run db:import:odenet
+```
+
+默认路径为 `data/odenet/odenet-1.4/deWordNet.xml`。导入脚本会重建 WordNet
+表，并把现有词元按“词元 + 词性”关联到 OdeNet Synset。
+
+## 导入词表分级
+
+wordfeather 的 A1–C2 分级数据可以直接从 GitHub 拉取：
+
+```bash
+npm run db:import:wordfeather
+```
+
+脚本会重建 `vocabulary_levels`，并把现有词元按“词元 + 词性”关联到
+`lexeme_vocabulary_levels`。该数据为社区整理的 CC BY-NC 4.0 数据，不是
+Goethe-Institut 官方发布。
 
 ## 线上配置
 
@@ -93,10 +119,11 @@ npm run db:migrate
 
 ## MCP
 
-Codex 已配置两个远程 MCP：
+Codex 已配置三个远程 MCP：
 
 - `Prisma-Remote`：`https://mcp.prisma.io/mcp`
 - `supabase`：带当前 project ref 的 Supabase 官方 MCP
+- `stitch`：Google Stitch 设计生成 MCP，`https://stitch.googleapis.com/mcp`（API Key 认证）
 
 重启 Codex 后可用 `/mcp` 查看状态。首次使用时按提示完成 OAuth 登录。
 

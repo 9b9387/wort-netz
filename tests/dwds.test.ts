@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   normalizeLexeme,
   parseFrequency,
+  parseGenderFromDwdsHtml,
   parseIpa,
   parseSnippet,
 } from "../lib/server/dwds";
@@ -57,5 +58,19 @@ describe("parseIpa", () => {
 
   it("returns the first entry when no proved entry exists", () => {
     expect(parseIpa([{ ipa: "ˈhaʊ̯s", status: "auto" }])).toBe("ˈhaʊ̯s");
+  });
+});
+
+describe("parseGenderFromDwdsHtml", () => {
+  it("reads grammatical gender from DWDS page metadata", () => {
+    const html = `
+      <meta property="og:image:alt" content="Katze, die: Substantiv, Femininum. DWDS-Wörterbuch">
+    `;
+
+    expect(parseGenderFromDwdsHtml(html)).toBe("feminine");
+  });
+
+  it("returns null when the page has no grammatical gender metadata", () => {
+    expect(parseGenderFromDwdsHtml("<html></html>")).toBeNull();
   });
 });

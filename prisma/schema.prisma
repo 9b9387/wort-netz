@@ -16,31 +16,36 @@ model Profile {
 
   encounters  Encounter[]
   userLexemes UserLexeme[]
+  wordNotes   UserWordNote[]
 
   @@map("profiles")
 }
 
 model Lexeme {
-  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  normalizedLemma String   @unique @map("normalized_lemma")
-  canonicalLemma  String   @map("canonical_lemma")
-  wordType        String?  @map("word_type")
-  frequencyClass  Int?     @map("frequency_class") @db.SmallInt
-  ipa             String?
-  dwdsUrl         String?  @map("dwds_url")
-  definitionEn    String?  @map("definition_en")
-  formsJson       Json?    @map("forms_json")
-  dictionaryUrl   String?  @map("dictionary_url")
-  dictionarySource String? @map("dictionary_source")
-  dictionaryLicense String? @map("dictionary_license")
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  normalizedLemma     String    @unique @map("normalized_lemma")
+  canonicalLemma      String    @map("canonical_lemma")
+  wordType            String?   @map("word_type")
+  gender              String?
+  frequencyClass      Int?      @map("frequency_class") @db.SmallInt
+  ipa                 String?
+  dwdsUrl             String?   @map("dwds_url")
+  definitionEn        String?   @map("definition_en")
+  formsJson           Json?     @map("forms_json")
+  dictionaryUrl       String?   @map("dictionary_url")
+  dictionarySource    String?   @map("dictionary_source")
+  dictionaryLicense   String?   @map("dictionary_license")
   dictionaryFetchedAt DateTime? @map("dictionary_fetched_at") @db.Timestamptz(6)
-  sourceJson      Json     @default("{}") @map("source_json")
-  sourceFetchedAt DateTime @default(now()) @map("source_fetched_at") @db.Timestamptz(6)
-  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  sourceJson          Json      @default("{}") @map("source_json")
+  sourceFetchedAt     DateTime  @default(now()) @map("source_fetched_at") @db.Timestamptz(6)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  encounters  Encounter[]
-  userLexemes UserLexeme[]
+  encounters       Encounter[]
+  userLexemes      UserLexeme[]
+  wordNotes        UserWordNote[]
+  lexemeSynsets    LexemeSynset[]
+  vocabularyLevels LexemeVocabularyLevel[]
 
   @@index([wordType])
   @@index([frequencyClass])
@@ -63,18 +68,43 @@ model Encounter {
 }
 
 model UserLexeme {
-  userId         String   @map("user_id") @db.Uuid
-  lexemeId       String   @map("lexeme_id") @db.Uuid
-  firstSeenAt    DateTime @default(now()) @map("first_seen_at") @db.Timestamptz(6)
-  lastSeenAt     DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(6)
-  encounterCount Int      @default(0) @map("encounter_count")
+  userId          String    @map("user_id") @db.Uuid
+  lexemeId        String    @map("lexeme_id") @db.Uuid
+  firstSeenAt     DateTime  @default(now()) @map("first_seen_at") @db.Timestamptz(6)
+  lastSeenAt      DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+  encounterCount  Int       @default(0) @map("encounter_count")
+  isFavorite      Boolean   @default(false) @map("is_favorite")
+  status          String    @default("NEW") @map("status")
+  leitnerBox      Int       @default(0) @map("leitner_box")
+  dueAt           DateTime? @map("due_at") @db.Timestamptz(6)
+  intervalDays    Int       @default(0) @map("interval_days")
+  easeFactor      Float     @default(2.5) @map("ease_factor")
+  repetitions     Int       @default(0)
+  lapses          Int       @default(0)
+  lastReviewedAt  DateTime? @map("last_reviewed_at") @db.Timestamptz(6)
+
+  profile  Profile      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lexeme   Lexeme       @relation(fields: [lexemeId], references: [id], onDelete: Cascade)
+
+  @@id([userId, lexemeId])
+  @@index([userId, lastSeenAt(sort: Desc)])
+  @@index([userId, status, dueAt])
+  @@map("user_lexemes")
+}
+
+model UserWordNote {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  lexemeId  String   @map("lexeme_id") @db.Uuid
+  content   String   @default("")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   profile Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
   lexeme  Lexeme  @relation(fields: [lexemeId], references: [id], onDelete: Cascade)
 
-  @@id([userId, lexemeId])
-  @@index([userId, lastSeenAt(sort: Desc)])
-  @@map("user_lexemes")
+  @@unique([userId, lexemeId])
+  @@index([userId, updatedAt(sort: Desc)])
+  @@map("user_word_notes")
 }
 
 model DwdsCache {
@@ -85,4 +115,167 @@ model DwdsCache {
 
   @@id([endpoint, query])
   @@map("dwds_cache")
+}
+
+model WordnetSynset {
+  id            String   @id
+  ili           String?
+  partOfSpeech  String?  @map("part_of_speech")
+  descriptionEn String?  @map("description_en")
+  subject       String?
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  definitions    WordnetDefinition[]
+  examples       WordnetExample[]
+  senses         WordnetSense[]
+  relationsFrom  WordnetRelation[]      @relation("WordnetRelationSource")
+  relationsTo    WordnetRelation[]      @relation("WordnetRelationTarget")
+  senseRelations WordnetSenseRelation[]
+  lexemeSynsets  LexemeSynset[]
+
+  @@index([partOfSpeech])
+  @@index([ili])
+  @@map("wordnet_synsets")
+}
+
+model WordnetDefinition {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  synsetId  String   @map("synset_id")
+  language  String   @default("de")
+  text      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  synset WordnetSynset @relation(fields: [synsetId], references: [id], onDelete: Cascade)
+
+  @@index([synsetId])
+  @@map("wordnet_definitions")
+}
+
+model WordnetExample {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  synsetId  String?  @map("synset_id")
+  text      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  synset WordnetSynset? @relation(fields: [synsetId], references: [id], onDelete: Cascade)
+
+  @@index([synsetId])
+  @@map("wordnet_examples")
+}
+
+model WordnetLexicalEntry {
+  id              String   @id
+  lemma           String
+  normalizedLemma String   @map("normalized_lemma")
+  partOfSpeech    String?  @map("part_of_speech")
+  basicVocabulary Boolean  @default(false) @map("basic_vocabulary")
+  confidenceScore Float?   @map("confidence_score")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  senses WordnetSense[]
+
+  @@index([normalizedLemma, partOfSpeech])
+  @@map("wordnet_lexical_entries")
+}
+
+model WordnetSense {
+  id       String @id
+  entryId  String @map("entry_id")
+  synsetId String @map("synset_id")
+
+  entry         WordnetLexicalEntry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  synset        WordnetSynset          @relation(fields: [synsetId], references: [id], onDelete: Cascade)
+  relationsFrom WordnetSenseRelation[] @relation("WordnetSenseRelationSource")
+
+  @@index([synsetId])
+  @@index([entryId])
+  @@map("wordnet_senses")
+}
+
+model WordnetRelation {
+  sourceSynsetId String @map("source_synset_id")
+  targetSynsetId String @map("target_synset_id")
+  relType        String @map("rel_type")
+
+  sourceSynset WordnetSynset @relation("WordnetRelationSource", fields: [sourceSynsetId], references: [id], onDelete: Cascade)
+  targetSynset WordnetSynset @relation("WordnetRelationTarget", fields: [targetSynsetId], references: [id], onDelete: Cascade)
+
+  @@id([sourceSynsetId, targetSynsetId, relType])
+  @@index([sourceSynsetId, relType])
+  @@index([targetSynsetId, relType])
+  @@map("wordnet_relations")
+}
+
+model WordnetSenseRelation {
+  sourceSenseId  String @map("source_sense_id")
+  targetSynsetId String @map("target_synset_id")
+  relType        String @map("rel_type")
+
+  sourceSense  WordnetSense  @relation("WordnetSenseRelationSource", fields: [sourceSenseId], references: [id], onDelete: Cascade)
+  targetSynset WordnetSynset @relation(fields: [targetSynsetId], references: [id], onDelete: Cascade)
+
+  @@id([sourceSenseId, targetSynsetId, relType])
+  @@index([sourceSenseId, relType])
+  @@index([targetSynsetId, relType])
+  @@map("wordnet_sense_relations")
+}
+
+model LexemeSynset {
+  lexemeId   String   @map("lexeme_id") @db.Uuid
+  synsetId   String   @map("synset_id")
+  matchType  String   @default("exact") @map("match_type")
+  confidence Float?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  lexeme Lexeme        @relation(fields: [lexemeId], references: [id], onDelete: Cascade)
+  synset WordnetSynset @relation(fields: [synsetId], references: [id], onDelete: Cascade)
+
+  @@id([lexemeId, synsetId])
+  @@index([synsetId])
+  @@map("lexeme_synsets")
+}
+
+model WordnetImport {
+  id         String   @id
+  version    String
+  sourceUrl  String   @map("source_url")
+  license    String
+  importedAt DateTime @default(now()) @map("imported_at") @db.Timestamptz(6)
+  statsJson  Json?    @map("stats_json")
+
+  @@map("wordnet_imports")
+}
+
+model VocabularyLevel {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  level           String
+  lemma           String
+  normalizedLemma String   @map("normalized_lemma")
+  partOfSpeech    String   @default("") @map("part_of_speech")
+  translationEn   String?  @map("translation_en")
+  exampleDe       String?  @map("example_de")
+  source          String   @default("wordfeather")
+  sourceUrl       String   @map("source_url")
+  license         String
+  confidence      Float?
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([normalizedLemma, level, partOfSpeech])
+  @@index([normalizedLemma])
+  @@index([level])
+  @@map("vocabulary_levels")
+}
+
+model LexemeVocabularyLevel {
+  lexemeId   String   @map("lexeme_id") @db.Uuid
+  level      String
+  source     String   @default("wordfeather")
+  confidence Float?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  lexeme Lexeme @relation(fields: [lexemeId], references: [id], onDelete: Cascade)
+
+  @@id([lexemeId, level])
+  @@index([level])
+  @@map("lexeme_vocabulary_levels")
 }

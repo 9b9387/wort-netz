@@ -17,7 +17,9 @@
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
     "db:status": "prisma migrate status",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:import:odenet": "tsx scripts/import-odenet.ts",
+    "db:import:wordfeather": "tsx scripts/import-wordfeather.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
@@ -28,8 +30,10 @@
     "class-variance-authority": "^0.7.1",
     "cn": "^0.4.0",
     "dotenv": "^18.0.8",
+    "fast-xml-parser": "^5.11.2",
     "lucide-react": "^1.57.0",
     "next": "16.4.1",
+    "node-html-parser": "^9.0.4",
     "pg": "^8.23.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -48,6 +52,7 @@
     "prisma": "^7.10.0",
     "shadcn": "^4.21.5",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5",
     "vitest": "^2.1.9"
   }

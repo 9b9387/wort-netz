@@ -7,10 +7,10 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function fetchJson<T>(
+async function fetchWithRetry(
   url: string,
   timeoutMs = DEFAULT_TIMEOUT_MS,
-): Promise<T> {
+): Promise<Response> {
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
@@ -21,7 +21,7 @@ export async function fetchJson<T>(
       const response = await fetch(url, {
         method: "GET",
         headers: {
-          Accept: "application/json",
+          Accept: "text/html, application/json",
           "User-Agent": "WortNetz/0.1 (+https://wortnetz.example)",
         },
         signal: controller.signal,
@@ -41,7 +41,7 @@ export async function fetchJson<T>(
         throw new Error(`HTTP request failed with ${response.status}`);
       }
 
-      return (await response.json()) as T;
+      return response;
     } catch (error) {
       lastError = error;
 
@@ -59,4 +59,20 @@ export async function fetchJson<T>(
   throw lastError instanceof Error
     ? lastError
     : new Error("HTTP request failed");
+}
+
+export async function fetchJson<T>(
+  url: string,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+): Promise<T> {
+  const response = await fetchWithRetry(url, timeoutMs);
+  return (await response.json()) as T;
+}
+
+export async function fetchText(
+  url: string,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+): Promise<string> {
+  const response = await fetchWithRetry(url, timeoutMs);
+  return response.text();
 }

@@ -43,4 +43,17 @@ describe("parseFreeDictionaryResponse", () => {
     expect(result?.formsJson?.genitive).toBe("Lampe");
     expect(result?.dictionaryLicense).toBe("CC BY-SA 4.0");
   });
+
+  it("returns null when the German word is missing", () => {
+    expect(
+      parseFreeDictionaryResponse(
+        {
+          word: "zzzzzz",
+          entries: [],
+        },
+        "zzzzzz",
+        null,
+      ),
+    ).toBeNull();
+  });
 });

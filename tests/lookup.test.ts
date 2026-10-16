@@ -138,4 +138,30 @@ describe("lookupDwds", () => {
       found: true,
     });
   });
+
+  it("marks a random input as not found", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+
+        if (url.includes("/frequency")) {
+          return Response.json({
+            q: "zzzzzz",
+            lemma: "zzzzzz",
+            frequency: 0,
+            hits: 144,
+          });
+        }
+
+        return Response.json([]);
+      }),
+    );
+
+    await expect(lookupDwds("zzzzzz")).resolves.toMatchObject({
+      canonicalLemma: "zzzzzz",
+      frequencyHits: 144,
+      found: false,
+    });
+  });
 });

@@ -36,6 +36,11 @@
 | 输入框边框 | `border-input` |
 | 焦点环 | `ring-ring` |
 | 错误 / 危险 | `text-destructive`、`variant="destructive"` |
+| 阳性名词 `der` | `bg-gender-masculine-muted` / `text-gender-masculine-foreground` |
+| 阴性名词 `die` | `bg-gender-feminine-muted` / `text-gender-feminine-foreground` |
+| 中性名词 `das` | `bg-gender-neuter-muted` / `text-gender-neuter-foreground` |
+| 复数形式 | `bg-gender-plural-muted` / `text-gender-plural-foreground` |
+| CEFR 级别 | `bg-cefr-muted` / `text-cefr-foreground` |
 
 禁止：
 
